@@ -29,8 +29,8 @@
   - [ ] Construcción de la narrativa
   - [ ] Diseño del pitch deck
 
-- [ ] **6. Pasarela de Pagos** *(opcional)*
+- [ ] **6. Pasarela de Pagos** _(opcional)_
   - [ ] Integración de pasarela de pagos
 
-- [ ] **7. Integración con LinkedIn** *(opcional)*
+- [ ] **7. Integración con LinkedIn** _(opcional)_
   - [ ] Integración con LinkedIn
