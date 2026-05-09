@@ -1,12 +1,18 @@
-import { defineSchema, defineTable } from 'convex/server';
-import { v } from 'convex/values';
+import { defineSchema } from "convex/server";
+import { z } from "zod";
 
-// The schema is entirely optional.
-// You can delete this file (schema.ts) and the
-// app will continue to work.
-// The schema provides more precise TypeScript types.
+import { zodTable } from ".";
+
+export const candidates = zodTable("candidates", () => ({
+	name: z.string(),
+	email: z.string(),
+	phoneNumber: z.string(),
+}));
+
 export default defineSchema({
-  numbers: defineTable({
-    value: v.number(),
-  }),
+	candidates: candidates
+		.table()
+		.searchIndex("by_name", { searchField: "name" })
+		.searchIndex("by_email", { searchField: "email" })
+		.searchIndex("by_phoneNumber", { searchField: "phoneNumber" }),
 });

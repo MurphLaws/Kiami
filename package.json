@@ -1,34 +1,42 @@
 {
-  "name": "my-app",
+  "name": "kiami",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "license": "MIT",
-  "homepage": "https://github.com/workos/template-convex-tanstack-start-authkit/#readme",
+  "homepage": "https://github.com/MurphLaws/Kiami/#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/workos/template-convex-tanstack-start-authkit.git"
+    "url": "git+https://github.com/MurphLaws/Kiami.git"
   },
   "bugs": {
-    "url": "https://github.com/workos/template-convex-tanstack-start-authkit/issues"
+    "url": "https://github.com/MurphLaws/Kiami/issues"
   },
   "scripts": {
-    "dev": "convex dev --start 'vite dev'",
+    "dev": "convex dev --start 'vite dev --host'",
     "build": "vite build",
     "start": "vite start",
     "format": "prettier --write .",
     "lint": "tsc && eslint .  --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@convex-dev/agent": "^0.6.1",
+    "@convex-dev/crons": "^0.2.0",
+    "@convex-dev/polar": "^0.9.1",
     "@convex-dev/react-query": "^0.1.0",
+    "@convex-dev/resend": "^0.2.3",
+    "@convex-dev/workflow": "^0.3.12",
+    "@convex-dev/workpool": "^0.4.6",
     "@tanstack/react-query": "^5.99.0",
     "@tanstack/react-router": "^1.168.22",
     "@tanstack/react-router-ssr-query": "^1.166.11",
     "@tanstack/react-start": "^1.167.41",
     "@workos/authkit-tanstack-react-start": "0.6.0",
     "convex": "^1.36.1",
+    "convex-helpers": "^0.1.116",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "^1.2.2",
@@ -48,8 +56,9 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@tailwindcss/oxide",
       "esbuild",
-      "@tailwindcss/oxide"
+      "unrs-resolver"
     ]
   }
 }
