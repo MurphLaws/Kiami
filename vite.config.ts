@@ -1,4 +1,5 @@
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import tailwindcss from "@tailwindcss/vite";
 import viteReact from "@vitejs/plugin-react";
 import * as dotenv from "dotenv";
 import { nitro } from "nitro/vite";
@@ -10,7 +11,7 @@ dotenv.config({ path: ".env.local", quiet: true });
 dotenv.config({ quiet: true });
 
 export default defineConfig({
-	plugins: [tanstackStart(), nitro(), viteReact()],
+	plugins: [tailwindcss(), tanstackStart(), nitro(), viteReact()],
 	resolve: {
 		tsconfigPaths: true,
 	},
