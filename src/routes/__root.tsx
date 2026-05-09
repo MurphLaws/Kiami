@@ -39,12 +39,17 @@ export const Route = createRootRouteWithContext<{
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Convex + TanStack Start + WorkOS AuthKit',
+        title: 'Kiami — Agentic search for recruiting and lead finding',
+      },
+      {
+        name: 'description',
+        content:
+          'Kiami replaces complex boolean strings and filter toggling with intelligent natural-language search for recruiting and lead finding.',
       },
     ],
     links: [
       { rel: 'stylesheet', href: appCssUrl },
-      { rel: 'icon', href: '/convex.svg' },
+      { rel: 'icon', type: 'image/svg+xml', href: '/kiami.svg' },
     ],
   }),
   shellComponent: RootComponent,
