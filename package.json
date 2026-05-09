@@ -20,11 +20,13 @@
     "lint": "tsc && eslint .  --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.63",
     "@apideck/unify": "^0.41.5",
     "@base-ui/react": "^1.4.1",
     "@convex-dev/agent": "^0.6.1",
     "@convex-dev/crons": "^0.2.0",
     "@convex-dev/polar": "^0.9.1",
+    "@convex-dev/rate-limiter": "^0.3.2",
     "@convex-dev/react-query": "^0.1.0",
     "@convex-dev/resend": "^0.2.3",
     "@convex-dev/workflow": "^0.3.12",
@@ -37,6 +39,7 @@
     "@tanstack/react-router-ssr-query": "^1.166.11",
     "@tanstack/react-start": "^1.167.41",
     "@workos/authkit-tanstack-react-start": "0.6.0",
+    "ai": "^6.0.177",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -62,6 +65,7 @@
   "devDependencies": {
     "@convex-dev/eslint-plugin": "^1.2.2",
     "@tailwindcss/postcss": "^4.2.2",
+    "@tailwindcss/vite": "^4.3.0",
     "@tanstack/eslint-config": "^0.4.0",
     "@tanstack/react-router-devtools": "^1.166.13",
     "@types/node": "^24.12.2",

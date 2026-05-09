@@ -11,6 +11,17 @@ export const leads = zodTable("leads", () => ({
 		name: z.string(),
 		industry: z.string(),
 	}),
+	classification: z
+		.object({
+			category: z.enum(["hot", "warm", "cold"]),
+			confidence: z.number(),
+			reasoning: z.string(),
+		})
+		.optional(),
+	contactStatus: z
+		.enum(["pending", "contacted", "failed"])
+		.optional(),
+	lastContactedAt: z.number().optional(),
 }));
 
 export default defineSchema({
