@@ -10,6 +10,7 @@ import { convexQuery } from "@convex-dev/react-query";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { api } from "../../convex/_generated/api";
 import type { User } from "@workos/authkit-tanstack-react-start";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
 	component: Home,
@@ -52,40 +53,21 @@ function HomeContent({
 					<Content />
 				</Authenticated>
 				<Unauthenticated>
-					<SignInForm signInUrl={signInUrl} signUpUrl={signUpUrl} />
+					<div className="flex flex-col gap-8 w-96 mx-auto">
+						<p>Log in to see the numbers</p>
+						<a href={signInUrl} className={buttonVariants()}>
+							Sign in
+						</a>
+						<a
+							href={signUpUrl}
+							className={buttonVariants({ variant: "outline" })}
+						>
+							Sign up
+						</a>
+					</div>
 				</Unauthenticated>
 			</main>
 		</>
-	);
-}
-
-function SignInForm({
-	signInUrl,
-	signUpUrl,
-}: {
-	signInUrl: string;
-	signUpUrl: string;
-}) {
-	return (
-		<div className="flex flex-col gap-8 w-96 mx-auto">
-			<p>Log in to see the numbers</p>
-			<a href={signInUrl}>
-				<button
-					type="button"
-					className="bg-foreground text-background px-4 py-2 rounded-md"
-				>
-					Sign in
-				</button>
-			</a>
-			<a href={signUpUrl}>
-				<button
-					type="button"
-					className="bg-foreground text-background px-4 py-2 rounded-md"
-				>
-					Sign up
-				</button>
-			</a>
-		</div>
 	);
 }
 
