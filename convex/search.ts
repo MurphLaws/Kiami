@@ -8,10 +8,13 @@
 //      so the UI can show who found it.
 //   4. Strip BC PII (email/phone) at the BC client. Apollo people search
 //      doesn't include email/phone on the free tier — exactly what we want.
+//   5. Score the leads, mark the top ~20% as "high profile", and batch-
+//      generate one outreach brief per high-profile lead via OpenAI.
 
 import { v } from "convex/values";
 
 import { action } from "./_generated/server";
+import type { NormalizedLead } from "./searchTypes";
 import {
 	apolloPeopleSearch,
 	type ApolloPerson,
@@ -21,23 +24,16 @@ import {
 	submitLeadFinder,
 	type BcLead,
 } from "./wrappers/bc";
+import {
+	generateBriefs,
+	pickHighProfile,
+	scoreLead,
+} from "./wrappers/briefs";
 import { inferFilters, type InferredFilters } from "./wrappers/openai";
 
 const APOLLO_FALLBACK_THRESHOLD = 5;
 
-export type NormalizedLead = {
-	source: "bettercontact" | "apollo";
-	full_name: string;
-	job_title?: string;
-	seniority?: string;
-	location?: string;
-	linkedin_url?: string;
-	company_name?: string;
-	company_industry?: string;
-	company_domain?: string;
-	company_headcount?: number | string;
-	raw: Record<string, unknown>;
-};
+export type { NormalizedLead };
 
 export type SearchResult = {
 	rationale: string;
@@ -120,6 +116,34 @@ export const runSearch = action({
 			} catch (err) {
 				result.apollo.error =
 					err instanceof Error ? err.message : String(err);
+			}
+		}
+
+		// --- Score, classify high-profile, generate briefs ---
+		for (const lead of result.leads) {
+			lead.score = scoreLead(lead);
+		}
+		const hpIndices = pickHighProfile(result.leads);
+		for (const i of hpIndices) result.leads[i].high_profile = true;
+
+		if (hpIndices.length > 0) {
+			try {
+				const subset = hpIndices.map((i) => result.leads[i]);
+				const briefs = await generateBriefs({
+					flow: args.flow,
+					originalBrief: args.brief,
+					leads: subset,
+				});
+				hpIndices.forEach((leadIdx, briefIdx) => {
+					const b = briefs[briefIdx];
+					if (b && (b.why_they_fit || b.suggested_opener)) {
+						result.leads[leadIdx].brief = b;
+					}
+				});
+			} catch (err) {
+				// Briefs are a best-effort enhancement; never let them fail
+				// the whole search.
+				console.error("brief generation failed", err);
 			}
 		}
 
