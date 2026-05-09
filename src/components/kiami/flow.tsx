@@ -75,3 +75,14 @@ export const flowTint = (f: Flow) =>
 	f === "sales" ? "var(--color-coral)" : "var(--color-peach)";
 export const flowLabel = (f: Flow) =>
 	f === "sales" ? "Lead Finder" : "Recruiting";
+
+// Mode-aware vocabulary. Use these instead of hard-coding "lead" or
+// "candidate" so wording stays correct under either mode.
+export function personNoun(f: Flow, plural = false): string {
+	if (f === "sales") return plural ? "leads" : "lead";
+	return plural ? "candidates" : "candidate";
+}
+
+export function actionVerb(f: Flow): string {
+	return f === "sales" ? "reach" : "hire";
+}

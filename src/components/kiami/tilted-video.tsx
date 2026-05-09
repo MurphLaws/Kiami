@@ -1,12 +1,44 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Play } from "@phosphor-icons/react";
 
 const PLACEHOLDER_VIDEO_URL =
 	"https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
 
+const MAX_TILT_DEG = 14;
+
 export function TiltedVideo() {
 	const ref = useRef<HTMLVideoElement | null>(null);
+	const wrapRef = useRef<HTMLDivElement | null>(null);
 	const [playing, setPlaying] = useState(true);
+	const [tilt, setTilt] = useState(MAX_TILT_DEG);
+
+	useEffect(() => {
+		let raf: number | null = null;
+		const compute = () => {
+			raf = null;
+			const el = wrapRef.current;
+			if (!el) return;
+			const rect = el.getBoundingClientRect();
+			const vh = window.innerHeight || 1;
+			// 0 when element center sits at viewport center (or above) → flat.
+			// 1 when element is fully below the viewport → max tilt.
+			const offCenter = rect.top + rect.height / 2 - vh / 2;
+			const progress = Math.max(0, Math.min(1, offCenter / vh));
+			setTilt(progress * MAX_TILT_DEG);
+		};
+		const onScroll = () => {
+			if (raf !== null) return;
+			raf = requestAnimationFrame(compute);
+		};
+		compute();
+		window.addEventListener("scroll", onScroll, { passive: true });
+		window.addEventListener("resize", onScroll);
+		return () => {
+			window.removeEventListener("scroll", onScroll);
+			window.removeEventListener("resize", onScroll);
+			if (raf !== null) cancelAnimationFrame(raf);
+		};
+	}, []);
 
 	const togglePlay = () => {
 		const v = ref.current;
@@ -23,12 +55,13 @@ export function TiltedVideo() {
 	return (
 		<div className="px-8 pt-10 pb-20" style={{ perspective: 1600 }}>
 			<div
+				ref={wrapRef}
 				className="mx-auto max-w-[1040px] overflow-hidden rounded-[18px] border border-white/5"
 				style={{
-					transform: "rotateX(-12deg)",
+					transform: `rotateX(${tilt}deg)`,
 					transformOrigin: "50% 100%",
 					transformStyle: "preserve-3d",
-					transition: "transform 600ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+					willChange: "transform",
 					boxShadow:
 						"0 40px 80px -30px rgba(11,18,32,0.35), 0 12px 24px -12px rgba(11,18,32,0.18)",
 					background: "#0B1220",

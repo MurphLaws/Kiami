@@ -18,18 +18,22 @@ export function RotatingWord({
 	const widest = words.reduce((a, b) => (a.length > b.length ? a : b), "");
 
 	return (
-		<span className="relative inline-block overflow-hidden align-bottom leading-[1.05]">
+		<span className="relative inline-block align-bottom leading-[1.05]">
+			{/* Placeholder reserves width — italic overhang is absorbed by a small
+			    right-padding so descenders/ascenders don't visually clip. */}
 			<span
 				aria-hidden
 				className="invisible inline-block whitespace-pre italic"
+				style={{ paddingRight: "0.15em" }}
 			>
 				{widest}
 			</span>
 			<span
 				key={i}
-				className="absolute inset-0 flex items-center justify-center whitespace-pre italic"
+				className="absolute inset-0 flex items-center justify-start whitespace-pre italic"
 				style={{
 					color,
+					paddingRight: "0.15em",
 					animation: "kiami-rot-in 600ms cubic-bezier(0.7, 0, 0.2, 1) both",
 				}}
 			>

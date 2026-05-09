@@ -15,11 +15,11 @@ export const Route = createFileRoute("/new/thinking")({
 });
 
 const TRACE_LINES = [
-	"Parsing brief — calling OpenAI for filter inference.",
-	"Submitting BetterContact Lead Finder.",
-	"Polling BetterContact for results.",
-	"Falling back to Apollo if needed.",
-	"Stripping PII and normalizing leads.",
+	"Parsing brief — inferring search criteria.",
+	"Querying the primary index.",
+	"Cross-checking the wider network.",
+	"Ranking by fit and recency.",
+	"Stripping PII and assembling results.",
 ];
 
 function ThinkingPage() {
@@ -110,7 +110,7 @@ function ThinkingPage() {
 						Kiami is on it.
 					</div>
 					<p className="mt-3 text-[17px] text-muted-foreground">
-						Inferring filters with OpenAI, then asking BetterContact and Apollo
+						Inferring criteria, then sweeping the index and the network
 						who they know. Usually 30–90 seconds.
 					</p>
 					<div

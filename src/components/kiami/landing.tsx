@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { BrandLogo } from "./brand-logo";
 import { TypePill } from "./type-pill";
 import { IconTile } from "./icon-tile";
 import { KiamiLogo } from "./logo";
@@ -88,18 +89,18 @@ function Hero() {
 	);
 }
 
-const LOGOS = [
-	"Greenhouse",
-	"Workday",
-	"Lever",
-	"Workable",
-	"Ashby",
-	"Salesforce",
-	"HubSpot",
-	"BambooHR",
-	"Apollo",
-	"Teamtailor",
-	"SAP SuccessFactors",
+const LOGOS: Array<{ name: string; domain: string }> = [
+	{ name: "Greenhouse", domain: "greenhouse.io" },
+	{ name: "Workday", domain: "workday.com" },
+	{ name: "Lever", domain: "lever.co" },
+	{ name: "Workable", domain: "workable.com" },
+	{ name: "Ashby", domain: "ashbyhq.com" },
+	{ name: "Salesforce", domain: "salesforce.com" },
+	{ name: "HubSpot", domain: "hubspot.com" },
+	{ name: "BambooHR", domain: "bamboohr.com" },
+	{ name: "Apollo", domain: "apollo.io" },
+	{ name: "Teamtailor", domain: "teamtailor.com" },
+	{ name: "SAP SuccessFactors", domain: "sap.com" },
 ];
 
 function LogoStrip() {
@@ -121,13 +122,8 @@ function LogoStrip() {
 							className="flex shrink-0 items-center gap-3 font-heading text-[19px] font-medium whitespace-nowrap"
 							style={{ color: "var(--color-ink-2)" }}
 						>
-							<span
-								className="inline-block h-5 w-5 rounded-md"
-								style={{
-									background: i % 2 ? "var(--color-coral-icon)" : "var(--color-brand)",
-								}}
-							/>
-							<span>{l}</span>
+							<BrandLogo domain={l.domain} name={l.name} size={28} />
+							<span>{l.name}</span>
 						</div>
 					))}
 				</div>

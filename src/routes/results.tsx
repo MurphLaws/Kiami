@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FocusedHeader } from "@/components/kiami/focused-header";
+import { personNoun, useMode } from "@/components/kiami/flow";
 import { loadResult, type StoredSearchResult } from "@/hooks/use-search";
 import { cn } from "@/lib/utils";
 
@@ -18,12 +19,13 @@ export const Route = createFileRoute("/results")({
 	component: ResultsPage,
 });
 
+type SourceFilter = "all" | "primary" | "network";
+
 function ResultsPage() {
 	const navigate = useNavigate();
+	const { flow } = useMode();
 	const [result, setResult] = useState<StoredSearchResult | null>(null);
-	const [filter, setFilter] = useState<"all" | "bettercontact" | "apollo">(
-		"all",
-	);
+	const [filter, setFilter] = useState<SourceFilter>("all");
 
 	useEffect(() => {
 		const r = loadResult();
@@ -36,15 +38,24 @@ function ResultsPage() {
 
 	if (!result) return null;
 
+	const peoplePlural = personNoun(flow, true);
+	const peopleSingular = personNoun(flow, false);
+
 	const visible =
 		filter === "all"
 			? result.leads
-			: result.leads.filter((l) => l.source === filter);
+			: result.leads.filter(
+					(l) =>
+						(l.source === "bettercontact" && filter === "primary") ||
+						(l.source === "apollo" && filter === "network"),
+				);
 
-	const bcCount = result.leads.filter(
+	const primaryCount = result.leads.filter(
 		(l) => l.source === "bettercontact",
 	).length;
-	const apolloCount = result.leads.filter((l) => l.source === "apollo").length;
+	const networkCount = result.leads.filter(
+		(l) => l.source === "apollo",
+	).length;
 
 	return (
 		<div className="min-h-screen bg-muted">
@@ -66,8 +77,8 @@ function ResultsPage() {
 							Results
 						</span>
 						<h1 className="mt-1.5 font-heading text-[36px] font-semibold leading-tight tracking-tight">
-							{result.leads.length} lead
-							{result.leads.length === 1 ? "" : "s"} found
+							{result.leads.length}{" "}
+							{result.leads.length === 1 ? peopleSingular : peoplePlural} found
 						</h1>
 						{result.rationale && (
 							<p className="mt-2 max-w-[640px] text-[15px] text-muted-foreground">
@@ -84,7 +95,7 @@ function ResultsPage() {
 					<Button
 						variant="outline"
 						className="gap-1.5"
-						onClick={() => exportCsv(result.leads)}
+						onClick={() => exportCsv(result.leads, flow)}
 						disabled={result.leads.length === 0}
 					>
 						<Export size={14} />
@@ -92,40 +103,26 @@ function ResultsPage() {
 					</Button>
 				</div>
 
-				<div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+				<div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
 					<StatCard
-						label="BetterContact"
-						count={bcCount}
+						label="Primary index"
+						count={primaryCount}
 						sub={
-							result.bc.error
-								? `error: ${truncate(result.bc.error, 80)}`
-								: result.bc.status
-									? `status: ${result.bc.status}`
-									: "—"
+							primaryCount > 0
+								? `${primaryCount} matched directly`
+								: "no direct matches"
 						}
 						accent="var(--color-peach-icon)"
 					/>
 					<StatCard
-						label="Apollo"
-						count={apolloCount}
+						label="Network"
+						count={networkCount}
 						sub={
-							result.apollo.error
-								? `error: ${truncate(result.apollo.error, 80)}`
-								: result.apollo.ran
-									? "fallback ran"
-									: "fallback not needed"
+							networkCount > 0
+								? `${networkCount} via wider sweep`
+								: "not needed"
 						}
 						accent="var(--color-coral-icon)"
-					/>
-					<StatCard
-						label="BC credits"
-						count={result.bc.credits_consumed ?? 0}
-						sub={
-							result.bc.credits_left !== undefined
-								? `${result.bc.credits_left} left`
-								: "—"
-						}
-						accent="var(--color-brand)"
 					/>
 				</div>
 
@@ -133,8 +130,8 @@ function ResultsPage() {
 					{(
 						[
 							["all", "All", result.leads.length],
-							["bettercontact", "BetterContact", bcCount],
-							["apollo", "Apollo", apolloCount],
+							["primary", "Primary", primaryCount],
+							["network", "Network", networkCount],
 						] as const
 					).map(([id, label, n]) => {
 						const active = filter === id;
@@ -168,7 +165,7 @@ function ResultsPage() {
 					{visible.length === 0 ? (
 						<div className="px-8 py-14 text-center">
 							<div className="font-heading text-[22px] font-semibold tracking-tight">
-								No matching leads
+								No matching {peoplePlural}
 							</div>
 							<p className="mx-auto mt-2 max-w-[420px] text-[14px] text-muted-foreground">
 								Try widening your brief — fewer must-haves, broader geography, or
@@ -188,7 +185,7 @@ function ResultsPage() {
 					) : (
 						<>
 							<div className="grid grid-cols-[1fr_180px_140px_120px_36px] items-center gap-4 border-b bg-muted px-4 py-2.5 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-								<span>Lead</span>
+								<span>{peopleSingular}</span>
 								<span>Company</span>
 								<span>Location</span>
 								<span>Source</span>
@@ -279,35 +276,35 @@ function StatCard({
 }
 
 function SourceBadge({ source }: { source: "bettercontact" | "apollo" }) {
-	const isBc = source === "bettercontact";
+	const isPrimary = source === "bettercontact";
+	const label = isPrimary ? "Primary" : "Network";
 	return (
 		<Badge
 			variant="secondary"
 			className="gap-1.5 py-1"
 			style={{
-				background: isBc ? "var(--color-peach-tint)" : "var(--color-coral-tint)",
-				color: isBc ? "var(--color-peach-icon)" : "var(--color-coral-icon)",
+				background: isPrimary
+					? "var(--color-peach-tint)"
+					: "var(--color-coral-tint)",
+				color: isPrimary
+					? "var(--color-peach-icon)"
+					: "var(--color-coral-icon)",
 			}}
 		>
 			<span
 				className="h-1.5 w-1.5 rounded-full"
 				style={{
-					background: isBc
+					background: isPrimary
 						? "var(--color-peach-icon)"
 						: "var(--color-coral-icon)",
 				}}
 			/>
-			{isBc ? "BetterContact" : "Apollo"}
+			{label}
 		</Badge>
 	);
 }
 
-function truncate(s: string, max: number): string {
-	if (s.length <= max) return s;
-	return s.slice(0, max - 1) + "…";
-}
-
-function exportCsv(leads: StoredSearchResult["leads"]) {
+function exportCsv(leads: StoredSearchResult["leads"], flow: "recruiting" | "sales") {
 	if (typeof window === "undefined") return;
 	const headers = [
 		"source",
@@ -320,15 +317,23 @@ function exportCsv(leads: StoredSearchResult["leads"]) {
 		"company_domain",
 		"linkedin_url",
 	];
-	const rows = leads.map((l) =>
-		headers.map((h) => csvCell((l as Record<string, unknown>)[h])).join(","),
-	);
+	const rows = leads.map((l) => {
+		const sourceLabel = l.source === "bettercontact" ? "primary" : "network";
+		return headers
+			.map((h) =>
+				h === "source"
+					? csvCell(sourceLabel)
+					: csvCell((l as Record<string, unknown>)[h]),
+			)
+			.join(",");
+	});
 	const csv = [headers.join(","), ...rows].join("\n");
 	const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
 	const url = URL.createObjectURL(blob);
 	const a = document.createElement("a");
 	a.href = url;
-	a.download = `kiami-leads-${new Date().toISOString().slice(0, 19)}.csv`;
+	const file = flow === "sales" ? "leads" : "candidates";
+	a.download = `kiami-${file}-${new Date().toISOString().slice(0, 19)}.csv`;
 	a.click();
 	URL.revokeObjectURL(url);
 }

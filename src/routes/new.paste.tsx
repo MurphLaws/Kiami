@@ -94,8 +94,8 @@ function PastePage() {
 							{title}
 						</h1>
 						<p className="mt-1.5 text-[15px] text-muted-foreground">
-							Paste plain text or upload a .txt / .md file. Kiami's AI will
-							infer the search filters before hitting BetterContact and Apollo.
+							Paste plain text or upload a .txt / .md file. Kiami's AI infers
+							the search criteria for you before running.
 						</p>
 					</div>
 				</div>
