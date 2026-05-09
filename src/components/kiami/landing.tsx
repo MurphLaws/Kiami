@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
 	MagnifyingGlass,
 	Sparkle,
@@ -13,8 +13,9 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { useMode } from "./flow";
+import { saveBrief } from "@/hooks/use-search";
 import { BrandLogo } from "./brand-logo";
 import { TypePill } from "./type-pill";
 import { IconTile } from "./icon-tile";
@@ -37,10 +38,40 @@ export function LandingPage() {
 	);
 }
 
+const REC_PLACEHOLDER =
+	"Find me senior backend engineers in Berlin who shipped fintech infra at a Series-B+, fluent in Go or Rust";
+const SALES_PLACEHOLDER =
+	"Find me Heads of People at HR-Tech SaaS in DACH (50–250 employees) who recently raised Series-A and are replacing legacy HRIS";
+
 function Hero() {
-	const [q, setQ] = useState(
-		"Find me senior backend engineers in Berlin who shipped fintech infra…",
-	);
+	const navigate = useNavigate();
+	const { flow } = useMode();
+	const [q, setQ] = useState(REC_PLACEHOLDER);
+	const [touched, setTouched] = useState(false);
+	const taRef = useRef<HTMLTextAreaElement | null>(null);
+
+	// Refresh the example to match the active mode unless the user typed.
+	useEffect(() => {
+		if (!touched) {
+			setQ(flow === "sales" ? SALES_PLACEHOLDER : REC_PLACEHOLDER);
+		}
+	}, [flow, touched]);
+
+	// Auto-grow so the whole prompt is always visible.
+	useEffect(() => {
+		const el = taRef.current;
+		if (!el) return;
+		el.style.height = "auto";
+		el.style.height = `${el.scrollHeight}px`;
+	}, [q]);
+
+	function submit() {
+		const trimmed = q.trim();
+		if (trimmed.length < 5) return;
+		saveBrief({ flow, brief: trimmed, mode: "paste" });
+		void navigate({ to: "/new/thinking" });
+	}
+
 	return (
 		<section className="px-8 pt-22 pb-6 text-center">
 			<div className="mx-auto max-w-[1140px]">
@@ -52,34 +83,53 @@ function Hero() {
 				<p className="mx-auto mt-6 max-w-[620px] text-[17px] leading-snug text-muted-foreground">
 					Kiami replaces complex boolean strings and endless filter toggling
 					with intelligent natural-language search, connecting you directly
-					with the exact talent you need.
+					with the exact{" "}
+					{flow === "sales" ? "buyers" : "talent"} you need.
 				</p>
 				<form
-					onSubmit={(e) => e.preventDefault()}
-					className="mx-auto mt-9 flex max-w-[640px] gap-2.5"
+					onSubmit={(e) => {
+						e.preventDefault();
+						submit();
+					}}
+					className="mx-auto mt-9 flex max-w-[760px] items-stretch gap-2.5"
 				>
 					<div className="relative flex-1">
 						<MagnifyingGlass
 							size={16}
-							className="absolute top-1/2 left-4 -translate-y-1/2 text-muted-foreground"
+							className="absolute top-3.5 left-4 text-muted-foreground"
 						/>
-						<Input
+						<textarea
+							ref={taRef}
 							value={q}
-							onChange={(e) => setQ(e.target.value)}
-							placeholder="e.g. Find me senior backend engineers in Berlin"
-							className="h-12 rounded-xl pl-11 text-sm"
+							rows={1}
+							onChange={(e) => {
+								setQ(e.target.value);
+								setTouched(true);
+							}}
+							onKeyDown={(e) => {
+								// Submit on plain Enter; Shift+Enter makes a newline.
+								if (e.key === "Enter" && !e.shiftKey) {
+									e.preventDefault();
+									submit();
+								}
+							}}
+							placeholder={
+								flow === "sales"
+									? "e.g. Heads of People at HR-Tech SaaS in DACH"
+									: "e.g. Senior backend engineers in Berlin"
+							}
+							className="block w-full resize-none overflow-hidden rounded-xl border border-input bg-background px-4 py-3 pl-11 text-left text-[15px] leading-[1.45] outline-none transition-colors focus:border-[var(--color-brand)]"
 						/>
 					</div>
-					<Link
-						to="/new/thinking"
-						className={cn(
-							buttonVariants({ size: "lg" }),
-							"h-12 gap-2 rounded-xl px-6",
-						)}
+					<Button
+						type="submit"
+						size="lg"
+						className="self-start gap-2 rounded-xl px-6"
+						style={{ height: 48 }}
 					>
 						<Sparkle size={16} weight="fill" />
 						Search now
-					</Link>
+					</Button>
 				</form>
 				<div className="mt-3.5 text-[13px] text-muted-foreground">
 					14-day trial · No credit card
