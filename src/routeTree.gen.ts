@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResultsRouteImport } from './routes/results'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
@@ -19,6 +20,11 @@ import { Route as NewPasteRouteImport } from './routes/new.paste'
 import { Route as NewFormRouteImport } from './routes/new.form'
 import { Route as AuthenticatedAuthenticatedRouteImport } from './routes/_authenticated/authenticated'
 
+const ResultsRoute = ResultsRouteImport.update({
+  id: '/results',
+  path: '/results',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
   '/dashboard': typeof DashboardRoute
+  '/results': typeof ResultsRoute
   '/authenticated': typeof AuthenticatedAuthenticatedRoute
   '/new/form': typeof NewFormRoute
   '/new/paste': typeof NewPasteRoute
@@ -79,6 +86,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
   '/dashboard': typeof DashboardRoute
+  '/results': typeof ResultsRoute
   '/authenticated': typeof AuthenticatedAuthenticatedRoute
   '/new/form': typeof NewFormRoute
   '/new/paste': typeof NewPasteRoute
@@ -91,6 +99,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/callback': typeof CallbackRoute
   '/dashboard': typeof DashboardRoute
+  '/results': typeof ResultsRoute
   '/_authenticated/authenticated': typeof AuthenticatedAuthenticatedRoute
   '/new/form': typeof NewFormRoute
   '/new/paste': typeof NewPasteRoute
@@ -103,6 +112,7 @@ export interface FileRouteTypes {
     | '/'
     | '/callback'
     | '/dashboard'
+    | '/results'
     | '/authenticated'
     | '/new/form'
     | '/new/paste'
@@ -113,6 +123,7 @@ export interface FileRouteTypes {
     | '/'
     | '/callback'
     | '/dashboard'
+    | '/results'
     | '/authenticated'
     | '/new/form'
     | '/new/paste'
@@ -124,6 +135,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/callback'
     | '/dashboard'
+    | '/results'
     | '/_authenticated/authenticated'
     | '/new/form'
     | '/new/paste'
@@ -136,6 +148,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   CallbackRoute: typeof CallbackRoute
   DashboardRoute: typeof DashboardRoute
+  ResultsRoute: typeof ResultsRoute
   NewFormRoute: typeof NewFormRoute
   NewPasteRoute: typeof NewPasteRoute
   NewThinkingRoute: typeof NewThinkingRoute
@@ -144,6 +157,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/results': {
+      id: '/results'
+      path: '/results'
+      fullPath: '/results'
+      preLoaderRoute: typeof ResultsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -227,6 +247,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   CallbackRoute: CallbackRoute,
   DashboardRoute: DashboardRoute,
+  ResultsRoute: ResultsRoute,
   NewFormRoute: NewFormRoute,
   NewPasteRoute: NewPasteRoute,
   NewThinkingRoute: NewThinkingRoute,

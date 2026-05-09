@@ -10,6 +10,11 @@
 
 import type * as index from "../index.js";
 import type * as leads from "../leads.js";
+import type * as search from "../search.js";
+import type * as wrappers_apollo from "../wrappers/apollo.js";
+import type * as wrappers_bc from "../wrappers/bc.js";
+import type * as wrappers_enums from "../wrappers/enums.js";
+import type * as wrappers_openai from "../wrappers/openai.js";
 
 import type {
   ApiFromModules,
@@ -20,6 +25,11 @@ import type {
 declare const fullApi: ApiFromModules<{
   index: typeof index;
   leads: typeof leads;
+  search: typeof search;
+  "wrappers/apollo": typeof wrappers_apollo;
+  "wrappers/bc": typeof wrappers_bc;
+  "wrappers/enums": typeof wrappers_enums;
+  "wrappers/openai": typeof wrappers_openai;
 }>;
 
 /**
