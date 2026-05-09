@@ -1,0 +1,77 @@
+import { useAction } from "convex/react";
+
+import { api } from "../../convex/_generated/api";
+
+export type Flow = "recruiting" | "sales";
+
+export type StoredBrief = {
+	flow: Flow;
+	brief: string;
+	mode: "paste" | "form";
+};
+
+export type StoredSearchResult = {
+	rationale: string;
+	leads: Array<{
+		source: "bettercontact" | "apollo";
+		full_name: string;
+		job_title?: string;
+		seniority?: string;
+		location?: string;
+		linkedin_url?: string;
+		company_name?: string;
+		company_industry?: string;
+		company_domain?: string;
+		company_headcount?: number | string;
+	}>;
+	bc: {
+		request_id?: string;
+		status?: string;
+		leads_found: number;
+		credits_consumed?: number;
+		credits_left?: number;
+		error?: string;
+	};
+	apollo: { ran: boolean; leads_found: number; error?: string };
+	filters_used: unknown;
+	finished_at: number;
+};
+
+const BRIEF_KEY = "kiami:brief";
+const RESULT_KEY = "kiami:lastResult";
+
+export function saveBrief(brief: StoredBrief) {
+	if (typeof window === "undefined") return;
+	sessionStorage.setItem(BRIEF_KEY, JSON.stringify(brief));
+}
+
+export function loadBrief(): StoredBrief | null {
+	if (typeof window === "undefined") return null;
+	const raw = sessionStorage.getItem(BRIEF_KEY);
+	if (!raw) return null;
+	try {
+		return JSON.parse(raw) as StoredBrief;
+	} catch {
+		return null;
+	}
+}
+
+export function saveResult(result: StoredSearchResult) {
+	if (typeof window === "undefined") return;
+	sessionStorage.setItem(RESULT_KEY, JSON.stringify(result));
+}
+
+export function loadResult(): StoredSearchResult | null {
+	if (typeof window === "undefined") return null;
+	const raw = sessionStorage.getItem(RESULT_KEY);
+	if (!raw) return null;
+	try {
+		return JSON.parse(raw) as StoredSearchResult;
+	} catch {
+		return null;
+	}
+}
+
+export function useRunSearch() {
+	return useAction(api.search.runSearch);
+}
