@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "apideck-node": {
+      "source": "apideck-libraries/api-skills",
+      "sourceType": "github",
+      "skillPath": "skills/apideck-node/SKILL.md",
+      "computedHash": "acdcdd45db9de787c1d24470fb090c3b18d6f05f5528128314f8e0c22ea2a25a"
+    },
     "convex": {
       "source": "get-convex/agent-skills",
       "sourceType": "github",
