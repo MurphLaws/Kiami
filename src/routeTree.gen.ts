@@ -9,11 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as NewIndexRouteImport } from './routes/new.index'
+import { Route as NewThinkingRouteImport } from './routes/new.thinking'
+import { Route as NewPasteRouteImport } from './routes/new.paste'
+import { Route as NewFormRouteImport } from './routes/new.form'
 import { Route as AuthenticatedAuthenticatedRouteImport } from './routes/_authenticated/authenticated'
 
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CallbackRoute = CallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
@@ -28,6 +38,26 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NewIndexRoute = NewIndexRouteImport.update({
+  id: '/new/',
+  path: '/new/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NewThinkingRoute = NewThinkingRouteImport.update({
+  id: '/new/thinking',
+  path: '/new/thinking',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NewPasteRoute = NewPasteRouteImport.update({
+  id: '/new/paste',
+  path: '/new/paste',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NewFormRoute = NewFormRouteImport.update({
+  id: '/new/form',
+  path: '/new/form',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAuthenticatedRoute =
   AuthenticatedAuthenticatedRouteImport.update({
     id: '/authenticated',
@@ -38,41 +68,89 @@ const AuthenticatedAuthenticatedRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
+  '/dashboard': typeof DashboardRoute
   '/authenticated': typeof AuthenticatedAuthenticatedRoute
+  '/new/form': typeof NewFormRoute
+  '/new/paste': typeof NewPasteRoute
+  '/new/thinking': typeof NewThinkingRoute
+  '/new/': typeof NewIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
+  '/dashboard': typeof DashboardRoute
   '/authenticated': typeof AuthenticatedAuthenticatedRoute
+  '/new/form': typeof NewFormRoute
+  '/new/paste': typeof NewPasteRoute
+  '/new/thinking': typeof NewThinkingRoute
+  '/new': typeof NewIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/callback': typeof CallbackRoute
+  '/dashboard': typeof DashboardRoute
   '/_authenticated/authenticated': typeof AuthenticatedAuthenticatedRoute
+  '/new/form': typeof NewFormRoute
+  '/new/paste': typeof NewPasteRoute
+  '/new/thinking': typeof NewThinkingRoute
+  '/new/': typeof NewIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/callback' | '/authenticated'
+  fullPaths:
+    | '/'
+    | '/callback'
+    | '/dashboard'
+    | '/authenticated'
+    | '/new/form'
+    | '/new/paste'
+    | '/new/thinking'
+    | '/new/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/callback' | '/authenticated'
+  to:
+    | '/'
+    | '/callback'
+    | '/dashboard'
+    | '/authenticated'
+    | '/new/form'
+    | '/new/paste'
+    | '/new/thinking'
+    | '/new'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/callback'
+    | '/dashboard'
     | '/_authenticated/authenticated'
+    | '/new/form'
+    | '/new/paste'
+    | '/new/thinking'
+    | '/new/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   CallbackRoute: typeof CallbackRoute
+  DashboardRoute: typeof DashboardRoute
+  NewFormRoute: typeof NewFormRoute
+  NewPasteRoute: typeof NewPasteRoute
+  NewThinkingRoute: typeof NewThinkingRoute
+  NewIndexRoute: typeof NewIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/callback': {
       id: '/callback'
       path: '/callback'
@@ -92,6 +170,34 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/new/': {
+      id: '/new/'
+      path: '/new'
+      fullPath: '/new/'
+      preLoaderRoute: typeof NewIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/new/thinking': {
+      id: '/new/thinking'
+      path: '/new/thinking'
+      fullPath: '/new/thinking'
+      preLoaderRoute: typeof NewThinkingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/new/paste': {
+      id: '/new/paste'
+      path: '/new/paste'
+      fullPath: '/new/paste'
+      preLoaderRoute: typeof NewPasteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/new/form': {
+      id: '/new/form'
+      path: '/new/form'
+      fullPath: '/new/form'
+      preLoaderRoute: typeof NewFormRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/authenticated': {
@@ -120,6 +226,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   CallbackRoute: CallbackRoute,
+  DashboardRoute: DashboardRoute,
+  NewFormRoute: NewFormRoute,
+  NewPasteRoute: NewPasteRoute,
+  NewThinkingRoute: NewThinkingRoute,
+  NewIndexRoute: NewIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -85,19 +85,70 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Kiami brand */
+  --color-brand: #1E5BFF;
+  --color-brand-2: #1244D9;
+  --color-brand-tint: #EAF0FF;
+  --color-peach: #FFE4D6;
+  --color-peach-ink: #B25433;
+  --color-peach-icon: #FF7A4D;
+  --color-coral: #FFD7CF;
+  --color-coral-ink: #B33A2A;
+  --color-coral-icon: #FF5A45;
+  --color-lavender: #E9E2FB;
+  --color-lavender-ink: #5B47A8;
+  --color-moss: #E0F1D7;
+  --color-moss-ink: #3F6B26;
+  --color-ink-strong: #0B1220;
+  --color-ink-2: #1B2333;
+  --color-muted-2: #8893A6;
+  --color-border-strong: #CCD3DD;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter Variable', system-ui, sans-serif;
+}
+
+@keyframes kiami-rot-in {
+  0% { transform: translateY(0.55em); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes kiami-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes kiami-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1); }
+}
+@keyframes kiami-ring {
+  0% { transform: scale(0.6); opacity: 0.45; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+@keyframes kiami-glow {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+@keyframes kiami-fade-up {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.kiami-marquee-mask {
+  mask-image: linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%);
+}
+
+.font-heading {
+  font-family: 'Geist Variable', system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+.font-mono-display {
+  font-family: ui-monospace, "JetBrains Mono", "SF Mono", monospace;
 }
 
 .dark {

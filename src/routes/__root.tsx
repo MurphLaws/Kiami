@@ -9,13 +9,18 @@ import type { ConvexQueryClient } from '@convex-dev/react-query';
 import { ThemeProvider } from '../components/layout/theme-provider';
 
 const fetchWorkosAuth = createServerFn({ method: 'GET' }).handler(async () => {
-  const auth = await getAuth();
-  const { user } = auth;
+  try {
+    const auth = await getAuth();
+    const { user } = auth;
 
-  return {
-    userId: user?.id ?? null,
-    token: user ? auth.accessToken : null,
-  };
+    return {
+      userId: user?.id ?? null,
+      token: user ? auth.accessToken : null,
+    };
+  } catch {
+    // WorkOS env not configured — render the app unauthenticated.
+    return { userId: null, token: null };
+  }
 });
 
 export const Route = createRootRouteWithContext<{
