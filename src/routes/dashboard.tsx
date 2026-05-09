@@ -11,13 +11,15 @@ import {
 	GitBranch,
 	DotsThree,
 	Sparkle,
+	Users,
+	Target,
 } from "@phosphor-icons/react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { KiamiLogo } from "@/components/kiami/logo";
-import { TypePill } from "@/components/kiami/type-pill";
 import { StatusPill, type Status } from "@/components/kiami/status-pill";
+import { useMode, flowLabel, type Flow } from "@/components/kiami/flow";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard")({
@@ -27,7 +29,7 @@ export const Route = createFileRoute("/dashboard")({
 type Search = {
 	id: number;
 	name: string;
-	flow: "recruiting" | "sales";
+	flow: Flow;
 	status: Status;
 	matches: number;
 	updated: string;
@@ -99,21 +101,30 @@ const SEARCHES: Search[] = [
 ];
 
 function DashboardPage() {
-	const [tab, setTab] = useState("all");
+	const { flow } = useMode();
+	const [tab, setTab] = useState<"all" | "running" | "drafts">("all");
 	const [empty, setEmpty] = useState(false);
+
+	const scoped = SEARCHES.filter((s) => s.flow === flow);
+	const tabbed =
+		tab === "all"
+			? scoped
+			: tab === "drafts"
+				? scoped.filter((s) => s.status === "draft")
+				: scoped.filter((s) => s.status === "running");
 
 	return (
 		<div className="flex min-h-screen bg-background">
 			<SideNav />
 			<main className="flex flex-1 flex-col bg-background">
 				<PageHeader />
-				{!empty && <Toolbar tab={tab} setTab={setTab} />}
-				{empty ? (
+				{!empty && <Toolbar tab={tab} setTab={setTab} rows={scoped} />}
+				{empty || tabbed.length === 0 ? (
 					<EmptyState onCreate={() => setEmpty(false)} />
 				) : (
 					<div className="flex-1 px-6 py-5">
-						<SearchTable rows={SEARCHES} />
-						<TableFooter />
+						<SearchTable rows={tabbed} />
+						<TableFooter total={tabbed.length} />
 						<div className="mt-6">
 							<Button
 								variant="outline"
@@ -131,6 +142,7 @@ function DashboardPage() {
 }
 
 function SideNav() {
+	const { flow, setFlow } = useMode();
 	const items: Array<[string, string, React.ComponentType<{ size?: number }>, string?]> = [
 		["searches", "Searches", ListIcon],
 		["inbox", "Inbox", Tray, "3"],
@@ -145,6 +157,11 @@ function SideNav() {
 					<Gear size={14} />
 				</button>
 			</div>
+
+			<div className="px-2.5 pb-2">
+				<ModeSwitcher value={flow} onChange={setFlow} />
+			</div>
+
 			<div className="px-2.5 pb-2.5">
 				<Link
 					to="/new"
@@ -159,6 +176,7 @@ function SideNav() {
 					</span>
 				</Link>
 			</div>
+
 			<nav className="grid gap-px px-2.5 py-1.5">
 				{items.map(([id, label, Icon, badge]) => (
 					<a
@@ -181,28 +199,6 @@ function SideNav() {
 					</a>
 				))}
 			</nav>
-			<div className="px-4 pt-3.5 pb-1 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground/70 uppercase">
-				Workspaces
-			</div>
-			<nav className="grid gap-px px-2.5">
-				{[
-					["Recruiting", "var(--color-peach-icon)", "4"],
-					["Sales GTM", "var(--color-coral-icon)", "2"],
-				].map(([label, color, count]) => (
-					<a
-						key={label}
-						href="#"
-						className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm hover:bg-card"
-					>
-						<span
-							className="h-2 w-2 rounded-sm"
-							style={{ background: color }}
-						/>
-						<span className="flex-1">{label}</span>
-						<span className="text-[11px] text-muted-foreground">{count}</span>
-					</a>
-				))}
-			</nav>
 			<div className="mt-auto flex items-center gap-2.5 border-t px-3.5 py-2.5 text-sm">
 				<div
 					className="grid h-6 w-6 place-items-center rounded-full text-[11px] font-semibold text-white"
@@ -221,14 +217,76 @@ function SideNav() {
 	);
 }
 
+function ModeSwitcher({
+	value,
+	onChange,
+}: {
+	value: Flow;
+	onChange: (f: Flow) => void;
+}) {
+	const opts: Array<{
+		id: Flow;
+		label: string;
+		Icon: React.ComponentType<{
+			size?: number;
+			weight?: "regular" | "fill";
+			color?: string;
+		}>;
+		tone: string;
+	}> = [
+		{
+			id: "recruiting",
+			label: "Recruiting",
+			Icon: Users,
+			tone: "var(--color-peach-icon)",
+		},
+		{
+			id: "sales",
+			label: "Lead Finder",
+			Icon: Target,
+			tone: "var(--color-coral-icon)",
+		},
+	];
+	return (
+		<div className="grid grid-cols-2 gap-1 rounded-lg border bg-card p-1">
+			{opts.map((o) => {
+				const active = value === o.id;
+				return (
+					<button
+						key={o.id}
+						type="button"
+						onClick={() => onChange(o.id)}
+						className={cn(
+							"flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12px] font-medium transition-colors",
+							active
+								? "bg-muted text-foreground shadow-xs"
+								: "text-muted-foreground hover:text-foreground",
+						)}
+					>
+						<o.Icon
+							size={12}
+							weight={active ? "fill" : "regular"}
+							color={active ? o.tone : undefined}
+						/>
+						{o.label}
+					</button>
+				);
+			})}
+		</div>
+	);
+}
+
 function PageHeader() {
+	const { flow } = useMode();
 	return (
 		<div className="flex items-center justify-between border-b bg-background px-6 py-3.5">
 			<div className="flex items-center gap-2 text-sm text-muted-foreground">
 				<ListIcon size={14} />
 				<span>Searches</span>
 				<span>/</span>
-				<span className="font-medium text-foreground">All</span>
+				<span className="font-medium text-foreground">
+					{flowLabel(flow)}
+				</span>
 			</div>
 			<div className="flex items-center gap-1.5">
 				<Button variant="ghost" size="sm" className="gap-1.5">
@@ -251,15 +309,21 @@ function PageHeader() {
 function Toolbar({
 	tab,
 	setTab,
+	rows,
 }: {
-	tab: string;
-	setTab: (v: string) => void;
+	tab: "all" | "running" | "drafts";
+	setTab: (v: "all" | "running" | "drafts") => void;
+	rows: Search[];
 }) {
-	const tabs: Array<[string, string, number]> = [
-		["all", "All", 6],
-		["recruiting", "Recruiting", 4],
-		["sales", "Sales GTM", 2],
-		["drafts", "Drafts", 1],
+	const counts = {
+		all: rows.length,
+		running: rows.filter((r) => r.status === "running").length,
+		drafts: rows.filter((r) => r.status === "draft").length,
+	};
+	const tabs: Array<["all" | "running" | "drafts", string, number]> = [
+		["all", "All", counts.all],
+		["running", "Running", counts.running],
+		["drafts", "Drafts", counts.drafts],
 	];
 	return (
 		<div className="flex items-center justify-between gap-4 border-b bg-background px-6 py-2.5">
@@ -319,10 +383,9 @@ function Toolbar({
 function SearchTable({ rows }: { rows: Search[] }) {
 	return (
 		<div className="overflow-hidden rounded-lg border bg-card">
-			<div className="grid grid-cols-[24px_minmax(0,1fr)_120px_110px_90px_130px_36px] items-center gap-4 border-b bg-muted px-4 py-2 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+			<div className="grid grid-cols-[24px_minmax(0,1fr)_110px_90px_130px_36px] items-center gap-4 border-b bg-muted px-4 py-2 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
 				<span />
 				<span>Search</span>
-				<span>Type</span>
 				<span>Status</span>
 				<span className="text-right">Matches</span>
 				<span>Updated</span>
@@ -332,7 +395,7 @@ function SearchTable({ rows }: { rows: Search[] }) {
 				<div
 					key={s.id}
 					className={cn(
-						"grid grid-cols-[24px_minmax(0,1fr)_120px_110px_90px_130px_36px] items-center gap-4 px-4 py-3.5 text-sm transition-colors hover:bg-muted/50",
+						"grid grid-cols-[24px_minmax(0,1fr)_110px_90px_130px_36px] items-center gap-4 px-4 py-3.5 text-sm transition-colors hover:bg-muted/50",
 						i < rows.length - 1 && "border-b",
 					)}
 				>
@@ -359,7 +422,6 @@ function SearchTable({ rows }: { rows: Search[] }) {
 							{s.owner}
 						</div>
 					</div>
-					<TypePill flow={s.flow} />
 					<StatusPill status={s.status} />
 					<span
 						className={cn(
@@ -381,10 +443,12 @@ function SearchTable({ rows }: { rows: Search[] }) {
 	);
 }
 
-function TableFooter() {
+function TableFooter({ total }: { total: number }) {
 	return (
 		<div className="flex items-center justify-between px-1 py-3 text-[12px] text-muted-foreground">
-			<span>Showing 6 of 6</span>
+			<span>
+				Showing {total} of {total}
+			</span>
 			<div className="flex items-center gap-1">
 				<button className="px-2 py-1 hover:text-foreground">‹</button>
 				<span>1 / 1</span>
@@ -395,6 +459,20 @@ function TableFooter() {
 }
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
+	const { flow } = useMode();
+	const isRec = flow === "recruiting";
+	const examples = isRec
+		? [
+				"Senior backend in Berlin",
+				"Staff PM · EU remote",
+				"iOS · Spanish-fluent",
+			]
+		: [
+				"Series-A HR-tech buyers",
+				"Healthtech CFOs",
+				"VP Marketing · vertical SaaS",
+			];
+
 	return (
 		<div className="grid flex-1 place-items-center px-6 py-10">
 			<div className="max-w-[420px] text-center">
@@ -408,7 +486,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 					<MagnifyingGlass size={22} />
 				</div>
 				<h2 className="mb-2 font-heading text-[32px] font-semibold leading-tight tracking-tight">
-					No searches yet
+					No {flowLabel(flow).toLowerCase()} searches yet
 				</h2>
 				<p className="mx-auto mb-5 max-w-[340px] text-[15px] text-muted-foreground">
 					Describe who you're looking for in plain English — Kiami builds the
@@ -424,11 +502,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 					</Button>
 				</div>
 				<div className="mt-7 flex flex-wrap justify-center gap-2">
-					{[
-						"Senior backend in Berlin",
-						"Series-A HR-tech buyers",
-						"Staff PM · EU remote",
-					].map((t) => (
+					{examples.map((t) => (
 						<Badge key={t} variant="secondary" className="gap-1.5 py-1">
 							<Sparkle
 								size={12}

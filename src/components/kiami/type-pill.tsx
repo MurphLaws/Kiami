@@ -23,7 +23,7 @@ export function TypePill({
 					: "rgba(255,90,69,0.25)",
 			}}
 		>
-			{isRec ? "Recruiting" : "Sales GTM"}
+			{isRec ? "Recruiting" : "Lead Finder"}
 		</span>
 	);
 }

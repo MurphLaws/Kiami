@@ -8,8 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FocusedHeader } from "@/components/kiami/focused-header";
-import { FlowTabs } from "@/components/kiami/flow-tabs";
-import type { Flow } from "@/components/kiami/flow";
+import { useMode } from "@/components/kiami/flow";
 import { saveBrief } from "@/hooks/use-search";
 
 export const Route = createFileRoute("/new/paste")({
@@ -43,7 +42,7 @@ Buyers: Head of People, VP HR, COO`;
 
 function PastePage() {
 	const navigate = useNavigate();
-	const [flow, setFlow] = useState<Flow>("recruiting");
+	const { flow } = useMode();
 	const [text, setText] = useState(SAMPLE_REC);
 	const [touched, setTouched] = useState(false);
 	const fileRef = useRef<HTMLInputElement>(null);
@@ -99,7 +98,6 @@ function PastePage() {
 							infer the search filters before hitting BetterContact and Apollo.
 						</p>
 					</div>
-					<FlowTabs value={flow} onChange={setFlow} />
 				</div>
 
 				<Card className="overflow-hidden bg-card p-0">

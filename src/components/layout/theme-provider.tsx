@@ -8,12 +8,12 @@ const themeStorageKey = 'ui-theme';
 const themes: UserTheme[] = ['light', 'dark', 'system'];
 
 function getStoredUserTheme(): UserTheme {
-  if (typeof window === 'undefined') return 'system';
+  if (typeof window === 'undefined') return 'light';
   try {
     const stored = localStorage.getItem(themeStorageKey);
-    return stored && themes.includes(stored as UserTheme) ? (stored as UserTheme) : 'system';
+    return stored && themes.includes(stored as UserTheme) ? (stored as UserTheme) : 'light';
   } catch {
-    return 'system';
+    return 'light';
   }
 }
 
@@ -43,8 +43,8 @@ function handleThemeChange(userTheme: UserTheme) {
 const themeScript: string = (() => {
   function themeFn() {
     try {
-      const stored = localStorage.getItem('ui-theme') || 'system';
-      const valid = ['light', 'dark', 'system'].includes(stored) ? stored : 'system';
+      const stored = localStorage.getItem('ui-theme') || 'light';
+      const valid = ['light', 'dark', 'system'].includes(stored) ? stored : 'light';
       if (valid === 'system') {
         const sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         document.documentElement.classList.add(sys, 'system');
@@ -52,8 +52,7 @@ const themeScript: string = (() => {
         document.documentElement.classList.add(valid);
       }
     } catch {
-      const sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      document.documentElement.classList.add(sys, 'system');
+      document.documentElement.classList.add('light');
     }
   }
   return `(${themeFn.toString()})();`;

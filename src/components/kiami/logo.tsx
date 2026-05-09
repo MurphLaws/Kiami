@@ -3,9 +3,11 @@ import { cn } from "@/lib/utils";
 export function KiamiLogo({
 	size = 22,
 	className,
+	showWordmark = true,
 }: {
 	size?: number;
 	className?: string;
+	showWordmark?: boolean;
 }) {
 	return (
 		<span
@@ -15,24 +17,30 @@ export function KiamiLogo({
 			)}
 			style={{ fontSize: size }}
 		>
-			<svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+			<svg
+				width={size}
+				height={size}
+				viewBox="0 0 32 32"
+				fill="none"
+				aria-hidden
+			>
 				<rect
-					x="2"
-					y="2"
-					width="20"
-					height="20"
-					rx="6"
+					x="0"
+					y="0"
+					width="32"
+					height="32"
+					rx="8"
 					fill="var(--color-brand)"
 				/>
 				<path
-					d="M8 7v10M8 12l6-5M8 12l6 5"
+					d="M11 8v16M11 16l9-8M11 16l9 8"
 					stroke="#fff"
-					strokeWidth="2"
+					strokeWidth="2.6"
 					strokeLinecap="round"
 					strokeLinejoin="round"
 				/>
 			</svg>
-			<span>Kiami</span>
+			{showWordmark && <span>Kiami</span>}
 		</span>
 	);
 }

@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { TypePill } from "./type-pill";
 import { IconTile } from "./icon-tile";
+import { KiamiLogo } from "./logo";
 import { RotatingWord } from "./rotating-word";
 import { TiltedVideo } from "./tilted-video";
 
@@ -352,35 +353,13 @@ function FooterBlock() {
 		<footer className="border-t bg-card px-8 pt-12 pb-8">
 			<div className="mx-auto grid max-w-[1100px] grid-cols-2 gap-8 md:grid-cols-5">
 				<div className="col-span-2 md:col-span-1">
-					<div
-						className="inline-flex items-center gap-2 font-heading font-semibold tracking-tight"
-						style={{ fontSize: 20 }}
-					>
-						<svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-							<rect
-								x="2"
-								y="2"
-								width="20"
-								height="20"
-								rx="6"
-								fill="var(--color-brand)"
-							/>
-							<path
-								d="M8 7v10M8 12l6-5M8 12l6 5"
-								stroke="#fff"
-								strokeWidth="2"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-							/>
-						</svg>
-						<span>Kiami</span>
-					</div>
+					<KiamiLogo size={20} />
 					<p className="mt-3 max-w-[280px] text-[13px] text-muted-foreground">
-						Agentic search for recruiting and sales teams.
+						Agentic search for recruiting and lead finding.
 					</p>
 				</div>
 				{[
-					["Product", ["Platform", "Recruiting", "Sales", "Pricing"]],
+					["Product", ["Platform", "Recruiting", "Lead Finder", "Pricing"]],
 					["Company", ["About", "Careers", "Blog", "Contact"]],
 					["Resources", ["Docs", "API", "Community", "Status"]],
 					["Legal", ["Privacy", "Terms", "Security"]],

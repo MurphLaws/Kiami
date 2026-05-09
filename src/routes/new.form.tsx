@@ -1,13 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
 	ArrowRight,
 	ArrowLeft,
 	Check,
 	Plus,
 	Sparkle,
-	Users,
-	Target,
 	PushPin,
 	Trash,
 } from "@phosphor-icons/react";
@@ -16,8 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { FocusedHeader } from "@/components/kiami/focused-header";
-import { IconTile } from "@/components/kiami/icon-tile";
-import type { Flow } from "@/components/kiami/flow";
+import { useMode, type Flow } from "@/components/kiami/flow";
 import { saveBrief } from "@/hooks/use-search";
 import { cn } from "@/lib/utils";
 
@@ -26,12 +23,11 @@ export const Route = createFileRoute("/new/form")({
 });
 
 const STEPS = [
-	{ n: 1, label: "Flow" },
-	{ n: 2, label: "Role" },
-	{ n: 3, label: "Seniority" },
-	{ n: 4, label: "Location" },
-	{ n: 5, label: "Must-haves" },
-	{ n: 6, label: "Review" },
+	{ n: 1, label: "Role" },
+	{ n: 2, label: "Seniority" },
+	{ n: 3, label: "Location" },
+	{ n: 4, label: "Must-haves" },
+	{ n: 5, label: "Review" },
 ];
 
 const SENIORITY_OPTS = [
@@ -70,7 +66,6 @@ const SALES_MUSTHAVES = [
 const LOCATION_TAGS = ["Hybrid", "Remote", "On-site", "Will relocate"];
 
 type FormState = {
-	flow: Flow;
 	role: string;
 	seniorityId: string;
 	location: string;
@@ -78,40 +73,47 @@ type FormState = {
 	mustHaves: string[];
 };
 
+function defaultsFor(flow: Flow): FormState {
+	return flow === "recruiting"
+		? {
+				role: "Senior Backend Engineer",
+				seniorityId: "senior",
+				location: "Berlin",
+				locationTags: ["Hybrid"],
+				mustHaves: REC_MUSTHAVES.slice(),
+			}
+		: {
+				role: "HR-Tech SaaS · 50–250 employees",
+				seniorityId: "manager",
+				location: "EU · DACH + Nordics",
+				locationTags: [],
+				mustHaves: SALES_MUSTHAVES.slice(),
+			};
+}
+
 function FormPage() {
 	const navigate = useNavigate();
+	const { flow } = useMode();
 	const [step, setStep] = useState(1);
-	const [state, setState] = useState<FormState>({
-		flow: "recruiting",
-		role: "Senior Backend Engineer",
-		seniorityId: "senior",
-		location: "Berlin",
-		locationTags: ["Hybrid"],
-		mustHaves: REC_MUSTHAVES.slice(),
-	});
+	const [state, setState] = useState<FormState>(() => defaultsFor(flow));
+	const [touched, setTouched] = useState(false);
+
+	useEffect(() => {
+		if (!touched) setState(defaultsFor(flow));
+	}, [flow, touched]);
 
 	function update<K extends keyof FormState>(k: K, v: FormState[K]) {
+		setTouched(true);
 		setState((s) => ({ ...s, [k]: v }));
 	}
 
-	function setFlow(f: Flow) {
-		setState((s) => ({
-			...s,
-			flow: f,
-			role:
-				f === "recruiting"
-					? "Senior Backend Engineer"
-					: "HR-Tech SaaS · 50–250 employees",
-			mustHaves:
-				f === "recruiting" ? REC_MUSTHAVES.slice() : SALES_MUSTHAVES.slice(),
-		}));
-	}
-
 	function handleRun() {
-		const brief = composeBrief(state);
-		saveBrief({ flow: state.flow, brief, mode: "form" });
+		const brief = composeBrief(flow, state);
+		saveBrief({ flow, brief, mode: "form" });
 		void navigate({ to: "/new/thinking" });
 	}
+
+	const totalSteps = STEPS.length;
 
 	return (
 		<div className="min-h-screen bg-muted">
@@ -119,36 +121,35 @@ function FormPage() {
 			<div className="mx-auto max-w-[760px] px-8 pt-10 pb-16">
 				<Stepper step={step} onJump={setStep} />
 				<Card className="mt-7 p-9">
-					{step === 1 && <Step1 flow={state.flow} setFlow={setFlow} />}
-					{step === 2 && (
-						<Step2
-							flow={state.flow}
+					{step === 1 && (
+						<Step1
+							flow={flow}
 							value={state.role}
 							onChange={(v) => update("role", v)}
 						/>
 					)}
-					{step === 3 && (
-						<Step3
+					{step === 2 && (
+						<Step2
 							value={state.seniorityId}
 							onChange={(v) => update("seniorityId", v)}
 						/>
 					)}
-					{step === 4 && (
-						<Step4
+					{step === 3 && (
+						<Step3
 							location={state.location}
 							tags={state.locationTags}
 							onLocation={(v) => update("location", v)}
 							onTags={(v) => update("locationTags", v)}
 						/>
 					)}
-					{step === 5 && (
-						<Step5
-							flow={state.flow}
+					{step === 4 && (
+						<Step4
+							flow={flow}
 							items={state.mustHaves}
 							onChange={(v) => update("mustHaves", v)}
 						/>
 					)}
-					{step === 6 && <Step6 state={state} />}
+					{step === 5 && <Step5 flow={flow} state={state} />}
 				</Card>
 				<div className="mt-5 flex justify-between">
 					<Button
@@ -160,9 +161,9 @@ function FormPage() {
 						<ArrowLeft size={14} />
 						Back
 					</Button>
-					{step < 6 ? (
+					{step < totalSteps ? (
 						<Button
-							onClick={() => setStep((s) => Math.min(6, s + 1))}
+							onClick={() => setStep((s) => Math.min(totalSteps, s + 1))}
 							className="gap-1.5"
 						>
 							Continue
@@ -263,66 +264,7 @@ function Q({
 	);
 }
 
-function Step1({ flow, setFlow }: { flow: Flow; setFlow: (v: Flow) => void }) {
-	const opts: Array<{
-		id: Flow;
-		label: string;
-		desc: string;
-		tone: "peach" | "coral";
-		Icon: React.ComponentType<{ size?: number }>;
-	}> = [
-		{
-			id: "recruiting",
-			label: "Recruiting",
-			desc: "Roles, candidates, sourcing.",
-			tone: "peach",
-			Icon: Users,
-		},
-		{
-			id: "sales",
-			label: "Sales GTM",
-			desc: "Accounts, buyers, intent.",
-			tone: "coral",
-			Icon: Target,
-		},
-	];
-	return (
-		<Q
-			eyebrow="Step 1 of 6"
-			title="Pick your flow"
-			hint="You can change this later — Kiami adapts the prompts and result fields."
-		>
-			<div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
-				{opts.map((o) => {
-					const sel = flow === o.id;
-					return (
-						<button
-							key={o.id}
-							type="button"
-							onClick={() => setFlow(o.id)}
-							className={cn(
-								"flex items-center gap-3.5 rounded-xl border bg-card p-4.5 text-left transition-all",
-								sel && "border-[var(--color-brand)] ring-3 ring-[var(--color-brand-tint)]",
-							)}
-						>
-							<IconTile tone={o.tone}>
-								<o.Icon size={18} />
-							</IconTile>
-							<div>
-								<div className="font-medium text-foreground">{o.label}</div>
-								<div className="mt-0.5 text-[13px] text-muted-foreground">
-									{o.desc}
-								</div>
-							</div>
-						</button>
-					);
-				})}
-			</div>
-		</Q>
-	);
-}
-
-function Step2({
+function Step1({
 	flow,
 	value,
 	onChange,
@@ -335,8 +277,12 @@ function Step2({
 	const suggestions = isRec ? REC_PRESETS : SALES_PRESETS;
 	return (
 		<Q
-			eyebrow="Step 2 of 6"
-			title={isRec ? "What role are you hiring for?" : "What segment are you selling into?"}
+			eyebrow="Step 1 of 5"
+			title={
+				isRec
+					? "What role are you hiring for?"
+					: "What segment are you selling into?"
+			}
 			hint="Type freely — Kiami will normalize titles."
 		>
 			<Input
@@ -344,7 +290,9 @@ function Step2({
 				onChange={(e) => onChange(e.target.value)}
 				className="h-13 rounded-xl px-4.5 text-base"
 			/>
-			<div className="mt-5 mb-2 text-[12px] text-muted-foreground">Suggestions</div>
+			<div className="mt-5 mb-2 text-[12px] text-muted-foreground">
+				Suggestions
+			</div>
 			<div className="flex flex-wrap gap-2">
 				{suggestions.map((s) => (
 					<Badge
@@ -361,7 +309,7 @@ function Step2({
 	);
 }
 
-function Step3({
+function Step2({
 	value,
 	onChange,
 }: {
@@ -369,7 +317,7 @@ function Step3({
 	onChange: (v: string) => void;
 }) {
 	return (
-		<Q eyebrow="Step 3 of 6" title="What seniority are you targeting?">
+		<Q eyebrow="Step 2 of 5" title="What seniority are you targeting?">
 			<div className="grid gap-2.5">
 				{SENIORITY_OPTS.map((o) => {
 					const sel = value === o.id;
@@ -378,7 +326,8 @@ function Step3({
 							key={o.id}
 							className={cn(
 								"flex cursor-pointer items-center gap-3.5 rounded-xl border p-4 transition-all",
-								sel && "border-[var(--color-brand)] ring-3 ring-[var(--color-brand-tint)]",
+								sel &&
+									"border-[var(--color-brand)] ring-3 ring-[var(--color-brand-tint)]",
 							)}
 						>
 							<input
@@ -403,7 +352,9 @@ function Step3({
 							</span>
 							<div>
 								<div className="font-medium text-foreground">{o.label}</div>
-								<div className="text-[13px] text-muted-foreground">{o.hint}</div>
+								<div className="text-[13px] text-muted-foreground">
+									{o.hint}
+								</div>
 							</div>
 						</label>
 					);
@@ -413,7 +364,7 @@ function Step3({
 	);
 }
 
-function Step4({
+function Step3({
 	location,
 	tags,
 	onLocation,
@@ -428,7 +379,7 @@ function Step4({
 		onTags(tags.includes(t) ? tags.filter((x) => x !== t) : [...tags, t]);
 	}
 	return (
-		<Q eyebrow="Step 4 of 6" title="Where should they be based?">
+		<Q eyebrow="Step 3 of 5" title="Where should they be based?">
 			<Input
 				value={location}
 				onChange={(e) => onLocation(e.target.value)}
@@ -453,7 +404,7 @@ function Step4({
 	);
 }
 
-function Step5({
+function Step4({
 	flow,
 	items,
 	onChange,
@@ -462,8 +413,8 @@ function Step5({
 	items: string[];
 	onChange: (v: string[]) => void;
 }) {
+	void flow;
 	const [draft, setDraft] = useState("");
-	const isRec = flow === "recruiting";
 	function add() {
 		const t = draft.trim();
 		if (!t) return;
@@ -475,13 +426,9 @@ function Step5({
 	}
 	return (
 		<Q
-			eyebrow="Step 5 of 6"
+			eyebrow="Step 4 of 5"
 			title="Anything that's a hard must-have?"
-			hint={
-				isRec
-					? "Kiami enforces these; everything else is a soft preference."
-					: "Kiami enforces these; everything else is a soft preference."
-			}
+			hint="Kiami enforces these; everything else is a soft preference."
 		>
 			<div className="grid gap-2">
 				{items.map((m, i) => (
@@ -528,21 +475,26 @@ function Step5({
 	);
 }
 
-function Step6({ state }: { state: FormState }) {
-	const isRec = state.flow === "recruiting";
+function Step5({ flow, state }: { flow: Flow; state: FormState }) {
+	const isRec = flow === "recruiting";
 	const sen = SENIORITY_OPTS.find((s) => s.id === state.seniorityId);
 	const rows: Array<[string, string]> = [
-		["Flow", isRec ? "Recruiting" : "Sales GTM"],
 		[isRec ? "Role" : "Segment", state.role || "—"],
 		["Seniority", sen ? `${sen.label} · ${sen.hint}` : "—"],
 		[
 			"Location",
-			[state.location, state.locationTags.join(" · ")].filter(Boolean).join(" · "),
+			[state.location, state.locationTags.join(" · ")]
+				.filter(Boolean)
+				.join(" · "),
 		],
 		["Must-haves", `${state.mustHaves.length} hard requirements`],
 	];
 	return (
-		<Q eyebrow="Step 6 of 6" title="Ready to run." hint="Review before Kiami goes searching.">
+		<Q
+			eyebrow="Step 5 of 5"
+			title="Ready to run."
+			hint="Review before Kiami goes searching."
+		>
 			<div className="grid gap-2.5">
 				{rows.map(([k, v]) => (
 					<div
@@ -550,7 +502,9 @@ function Step6({ state }: { state: FormState }) {
 						className="flex items-center justify-between rounded-xl bg-muted px-4 py-3"
 					>
 						<span className="text-[13px] text-muted-foreground">{k}</span>
-						<span className="text-sm font-medium text-foreground">{v || "—"}</span>
+						<span className="text-sm font-medium text-foreground">
+							{v || "—"}
+						</span>
 					</div>
 				))}
 			</div>
@@ -558,11 +512,11 @@ function Step6({ state }: { state: FormState }) {
 	);
 }
 
-function composeBrief(s: FormState): string {
-	const isRec = s.flow === "recruiting";
+function composeBrief(flow: Flow, s: FormState): string {
+	const isRec = flow === "recruiting";
 	const sen = SENIORITY_OPTS.find((x) => x.id === s.seniorityId);
 	const lines: string[] = [];
-	lines.push(`Flow: ${isRec ? "Recruiting" : "Sales GTM"}`);
+	lines.push(`Flow: ${isRec ? "Recruiting" : "Lead Finder"}`);
 	lines.push(`${isRec ? "Role" : "Segment"}: ${s.role}`);
 	if (sen) lines.push(`Seniority: ${sen.label} (${sen.hint})`);
 	if (s.location || s.locationTags.length) {

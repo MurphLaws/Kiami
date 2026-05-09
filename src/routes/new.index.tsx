@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
 import {
 	ArrowRight,
 	ArrowLeft,
@@ -8,9 +7,8 @@ import {
 	ListChecks,
 } from "@phosphor-icons/react";
 import { FocusedHeader } from "@/components/kiami/focused-header";
-import { FlowTabs } from "@/components/kiami/flow-tabs";
 import { IconTile } from "@/components/kiami/icon-tile";
-import type { Flow } from "@/components/kiami/flow";
+import { useMode, flowLabel } from "@/components/kiami/flow";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/new/")({
@@ -18,21 +16,33 @@ export const Route = createFileRoute("/new/")({
 });
 
 function ModePicker() {
-	const [flow, setFlow] = useState<Flow>("recruiting");
+	const { flow } = useMode();
 	const isRec = flow === "recruiting";
 
 	const pasteDesc = isRec
 		? "Paste a job description and Kiami will infer role, seniority, location, and must-haves."
 		: "Paste an ICP or one-pager — Kiami extracts segments, titles, intent signals, and account criteria.";
 	const formDesc = isRec
-		? "Walk through 6 short steps. Best when you want explicit control over each criterion."
+		? "Walk through 5 short steps. Best when you want explicit control over each criterion."
 		: "Walk through targeting one decision at a time — segment, geography, company stage, signals.";
 	const pasteBullets = isRec
-		? ["Detects role + seniority", "Surfaces must-haves vs nice-to-haves", "Editable before run"]
-		: ["Extracts firmographics", "Pulls intent triggers", "Editable before run"];
+		? [
+				"Detects role + seniority",
+				"Surfaces must-haves vs nice-to-haves",
+				"Editable before run",
+			]
+		: [
+				"Extracts firmographics",
+				"Pulls intent triggers",
+				"Editable before run",
+			];
 	const formBullets = isRec
 		? ["One question per page", "No JD required", "Save as a template"]
-		: ["Granular ABM rules", "No deck or doc needed", "Save as a template"];
+		: [
+				"Granular ABM rules",
+				"No deck or doc needed",
+				"Save as a template",
+			];
 
 	return (
 		<div className="min-h-screen bg-muted">
@@ -49,24 +59,22 @@ function ModePicker() {
 				</div>
 				<div className="mb-7">
 					<span className="text-[12px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
-						New search
+						New {flowLabel(flow)} search
 					</span>
 					<h1 className="mt-2 mb-2 font-heading text-[40px] font-semibold leading-tight tracking-tight">
-						Tell Kiami what to look for.
+						{isRec ? "Tell Kiami who to hire." : "Tell Kiami who to reach."}
 					</h1>
 					<p className="text-[17px] text-muted-foreground">
-						Choose your flow, then your input style.
+						Pick how you want to describe the search. You can switch modes any
+						time from the sidebar.
 					</p>
-				</div>
-				<div className="mb-7">
-					<FlowTabs value={flow} onChange={setFlow} />
 				</div>
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 					<ModeCard
 						to="/new/paste"
 						Icon={Note}
 						tone={isRec ? "peach" : "coral"}
-						title="Paste a description"
+						title={isRec ? "Paste a job listing" : "Paste your ICP"}
 						desc={pasteDesc}
 						bullets={pasteBullets}
 						recommended

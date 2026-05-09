@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import type { ConvexReactClient } from 'convex/react';
 import type { ConvexQueryClient } from '@convex-dev/react-query';
 import { ThemeProvider } from '../components/layout/theme-provider';
+import { ModeProvider } from '../components/kiami/flow';
 
 const fetchWorkosAuth = createServerFn({ method: 'GET' }).handler(async () => {
   try {
@@ -78,7 +79,9 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       </head>
       <body>
         <ThemeProvider>
-          {children}
+          <ModeProvider>
+            {children}
+          </ModeProvider>
         </ThemeProvider>
         <Scripts />
       </body>
