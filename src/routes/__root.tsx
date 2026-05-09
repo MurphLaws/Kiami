@@ -40,8 +40,9 @@ export const Route = createRootRouteWithContext<{
       { rel: 'icon', href: '/convex.svg' },
     ],
   }),
-  component: RootComponent,
+  shellComponent: RootComponent,
   notFoundComponent: () => <div>Not Found</div>,
+  pendingComponent: () => <div>Loading…</div>,
   beforeLoad: async (ctx) => {
     const { userId, token } = await fetchWorkosAuth();
 
