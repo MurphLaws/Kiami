@@ -1,294 +1,360 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
-	Phone,
-	UploadSimple,
-	ArrowRight,
+	MagnifyingGlass,
+	Plus,
+	Gear,
+	List as ListIcon,
+	Tray,
+	Database,
+	GitBranch,
+	Sparkle,
+	SidebarSimple,
 } from "@phosphor-icons/react";
-import { KiamiLogo, KiamiMark } from "@/components/kiami/logo";
+import { buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { KiamiLogo } from "@/components/kiami/logo";
+import { useMode, type Flow } from "@/components/kiami/flow";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard")({
 	component: DashboardPage,
 });
 
-const RECENT_CALLS = [
-	{
-		name: "Léa Marín",
-		title: "VP of People · Pennylane",
-		when: "12 min ago",
-		status: "Connected",
-	},
-	{
-		name: "Tomás Yamazaki",
-		title: "Head of HR · Alma",
-		when: "1h ago",
-		status: "Voicemail",
-	},
-	{
-		name: "Jordan Mata",
-		title: "Director of Talent · Northwind",
-		when: "Today, 09:42",
-		status: "Booked",
-	},
-	{
-		name: "Rita Okafor",
-		title: "Chief People Officer · Beam",
-		when: "Yesterday",
-		status: "Follow-up",
-	},
-	{
-		name: "Ana Silva",
-		title: "Recruiting Lead · Trafilea",
-		when: "Yesterday",
-		status: "Connected",
-	},
-] as const;
-
-const UP_NEXT = [
-	{ time: "11:30", who: "Discovery — Pennylane (Léa Marín)" },
-	{ time: "14:00", who: "Follow-up — Beam (Rita Okafor)" },
-	{ time: "16:15", who: "Intro — Alma (Tomás Yamazaki)" },
-] as const;
-
-const METRICS: Array<{ label: string; value: string; delta: string }> = [
-	{ label: "Calls scheduled this week", value: "32", delta: "+12% vs last week" },
-	{ label: "Connected rate", value: "47%", delta: "+4 pts" },
-	{ label: "Briefs generated", value: "08", delta: "this morning" },
-	{ label: "Leads in pipeline", value: "164", delta: "+22 today" },
-];
+const SIDENAV_KEY = "kiami:sidenavCollapsed";
 
 function DashboardPage() {
+	const { flow, setFlow } = useMode();
+	const isRecruiting = flow === "recruiting";
+
+	// Default to collapsed; only show the nav if the user has explicitly
+	// expanded it on this device.
+	const [collapsed, setCollapsed] = useState(true);
+	useEffect(() => {
+		try {
+			setCollapsed(localStorage.getItem(SIDENAV_KEY) !== "0");
+		} catch {}
+	}, []);
+	const toggle = () => {
+		setCollapsed((c) => {
+			const n = !c;
+			try {
+				localStorage.setItem(SIDENAV_KEY, n ? "1" : "0");
+			} catch {}
+			return n;
+		});
+	};
+
 	return (
-		<div className="min-h-screen bg-paper text-ink">
-			<TopNav />
-			<main className="mx-auto max-w-[1200px] px-8 pt-10 pb-16">
-				<HeroBlock />
-				<MetricsStrip />
-				<div className="mt-14 grid gap-12 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-					<RecentCalls />
-					<UpNext />
+		<div className="flex min-h-screen bg-background">
+			<SideNav collapsed={collapsed} onToggle={toggle} />
+			<main
+				className={cn(
+					"relative flex flex-1 flex-col overflow-hidden transition-colors duration-500",
+					isRecruiting
+						? "bg-[var(--color-brand)] text-white"
+						: "bg-white text-[var(--color-brand)]",
+				)}
+			>
+				{collapsed && (
+					<button
+						type="button"
+						onClick={toggle}
+						aria-label="Show sidebar"
+						className={cn(
+							"absolute top-4 left-4 z-20 grid h-9 w-9 place-items-center rounded-md backdrop-blur-sm transition-colors",
+							isRecruiting
+								? "bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30"
+								: "bg-white text-[var(--color-brand)] hover:bg-[var(--color-brand-tint)] ring-1 ring-[var(--color-brand)]/20",
+						)}
+					>
+						<SidebarSimple size={16} weight="bold" />
+					</button>
+				)}
+				<TopBar value={flow} onChange={setFlow} />
+				<div
+					key={flow}
+					className={cn(
+						"flex flex-1 flex-col",
+						isRecruiting
+							? "kiami-slide-from-left"
+							: "kiami-slide-from-right",
+					)}
+				>
+					<EmptyState flow={flow} />
 				</div>
 			</main>
 		</div>
 	);
 }
 
-function TopNav() {
+function SideNav({
+	collapsed,
+	onToggle,
+}: {
+	collapsed: boolean;
+	onToggle: () => void;
+}) {
+	const items: Array<
+		[string, string, React.ComponentType<{ size?: number }>, string?]
+	> = [
+		["searches", "Searches", ListIcon],
+		["inbox", "Inbox", Tray, "3"],
+		["accounts", "Accounts", Database],
+		["integrations", "Integrations", GitBranch],
+	];
 	return (
-		<header className="sticky top-0 z-30 flex h-16 items-center border-b border-hairline bg-paper/95 backdrop-blur-md">
-			<div className="mx-auto flex w-full max-w-[1200px] items-center justify-between px-8">
-				<Link to="/dashboard" aria-label="kiami home">
-					<KiamiLogo size={22} />
-				</Link>
-				<nav className="flex items-center gap-7 text-[13px]">
-					<Link
-						to="/dashboard"
-						className="font-medium text-ink"
-						activeProps={{ className: "font-medium text-ink" }}
+		<aside
+			className={cn(
+				"flex shrink-0 flex-col overflow-hidden border-r bg-muted transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+				collapsed ? "w-0 border-r-0" : "w-[232px]",
+			)}
+			aria-hidden={collapsed}
+		>
+			<div className="flex h-full w-[232px] flex-1 flex-col">
+			<div className="flex items-center justify-between px-4 py-3.5">
+				<KiamiLogo size={18} />
+				<div className="flex items-center gap-1">
+					<button
+						type="button"
+						onClick={onToggle}
+						aria-label="Hide sidebar"
+						className="p-1 text-muted-foreground hover:text-foreground"
 					>
-						Today
-					</Link>
-					<Link
-						to="/results"
-						className="text-slate transition-colors hover:text-ink"
-						activeProps={{ className: "font-medium text-ink" }}
-					>
-						Contacts
-					</Link>
-					<Link
-						to="/new"
-						className="ml-3 inline-flex items-center gap-1.5 rounded-[4px] bg-cobalt px-3.5 py-1.5 text-[13px] font-medium text-paper transition-colors hover:bg-deep"
-					>
-						<Phone size={13} weight="bold" />
-						Start a call
-					</Link>
-				</nav>
+						<SidebarSimple size={14} weight="bold" />
+					</button>
+					<button className="p-1 text-muted-foreground hover:text-foreground">
+						<Gear size={14} />
+					</button>
+				</div>
 			</div>
-		</header>
-	);
-}
 
-function HeroBlock() {
-	const today = new Date();
-	const date = today.toLocaleDateString("en-US", {
-		weekday: "long",
-		month: "long",
-		day: "numeric",
-	});
-	const hours = today.getHours();
-	const greeting =
-		hours < 12 ? "Good morning" : hours < 18 ? "Good afternoon" : "Good evening";
-
-	return (
-		<section className="flex flex-wrap items-end justify-between gap-6">
-			<div>
-				<span className="eyebrow">{date}</span>
-				<h1
-					className="mt-2 text-ink"
-					style={{
-						fontSize: "var(--type-h1)",
-						fontWeight: 700,
-						letterSpacing: "-0.025em",
-						lineHeight: 1.1,
-					}}
-				>
-					{greeting}, Jordan.
-				</h1>
-				<p className="mt-2 max-w-[420px] text-[14px] text-slate">
-					Eight new briefs are ready. Three follow-ups expect a call back today.
-				</p>
-			</div>
-			<div className="flex items-center gap-2">
+			<div className="px-2.5 pb-2.5">
 				<Link
 					to="/new"
-					className="inline-flex items-center gap-1.5 rounded-[4px] bg-cobalt px-4 py-2 text-[13px] font-medium text-paper transition-colors hover:bg-deep"
+					className={cn(buttonVariants(), "w-full justify-between")}
 				>
-					<Phone size={13} weight="bold" />
-					Start a call
+					<span className="flex items-center gap-2">
+						<Plus size={14} weight="bold" />
+						New search
+					</span>
+					<span className="rounded border border-white/30 px-1.5 py-0.5 font-mono-display text-[11px] opacity-70">
+						⌘N
+					</span>
 				</Link>
-				<button
-					type="button"
-					className="inline-flex items-center gap-1.5 rounded-[4px] border border-ink bg-paper px-4 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-mist"
-				>
-					<UploadSimple size={13} weight="bold" />
-					Import contacts
-				</button>
 			</div>
-		</section>
-	);
-}
 
-function MetricsStrip() {
-	return (
-		<section className="mt-12 grid grid-cols-2 border-y border-hairline md:grid-cols-4">
-			{METRICS.map((m, i) => (
-				<div
-					key={m.label}
-					className={
-						"flex flex-col gap-2 px-6 py-7 " +
-						(i < METRICS.length - 1
-							? "border-r border-hairline last:border-r-0 md:border-r"
-							: "")
-					}
-				>
-					<span className="eyebrow">{m.label}</span>
-					<span
-						className="font-mono-display tnum text-ink"
-						style={{
-							fontSize: "var(--type-display-lg)",
-							fontWeight: 500,
-							lineHeight: 1,
-							letterSpacing: "-0.02em",
-						}}
+			<nav className="grid gap-px px-2.5 py-1.5">
+				{items.map(([id, label, Icon, badge]) => (
+					<a
+						key={id}
+						href="#"
+						className={cn(
+							"flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+							id === "searches"
+								? "bg-card font-medium text-foreground shadow-xs"
+								: "text-muted-foreground hover:text-foreground",
+						)}
 					>
-						{m.value}
-					</span>
-					<span className="font-mono-display tnum text-[12px] text-cobalt">
-						{m.delta}
-					</span>
-				</div>
-			))}
-		</section>
-	);
-}
-
-function RecentCalls() {
-	return (
-		<section>
-			<div className="mb-3 flex items-baseline justify-between border-t border-hairline pt-4">
-				<span className="eyebrow">Recent calls</span>
-				<Link
-					to="/results"
-					className="inline-flex items-center gap-1 font-mono-display text-[11px] tracking-[0.18em] text-cobalt uppercase transition-colors hover:text-deep"
-				>
-					Open contacts
-					<ArrowRight size={11} weight="bold" />
-				</Link>
-			</div>
-			<div>
-				{RECENT_CALLS.map((c, i) => (
-					<RecentRow key={i} {...c} />
+						<Icon size={15} />
+						<span className="flex-1">{label}</span>
+						{badge && (
+							<span className="text-[11px] font-medium text-muted-foreground">
+								{badge}
+							</span>
+						)}
+					</a>
 				))}
+			</nav>
+			<div className="mt-auto flex items-center gap-2.5 border-t px-3.5 py-2.5 text-sm">
+				<div
+					className="grid h-6 w-6 place-items-center rounded-full text-[11px] font-semibold text-white"
+					style={{ background: "var(--color-brand)" }}
+				>
+					JM
+				</div>
+				<div className="leading-tight">
+					<div className="font-medium text-foreground">Jordan Mata</div>
+					<div className="text-[11px] text-muted-foreground">
+						Northwind Workspace
+					</div>
+				</div>
 			</div>
-		</section>
+			</div>
+		</aside>
 	);
 }
 
-function RecentRow({
-	name,
-	title,
-	when,
-	status,
+function TopBar({
+	value,
+	onChange,
 }: {
-	name: string;
-	title: string;
-	when: string;
-	status: string;
+	value: Flow;
+	onChange: (f: Flow) => void;
 }) {
-	const dotColor =
-		status === "Connected" || status === "Booked"
-			? "var(--cobalt)"
-			: status === "Voicemail"
-				? "var(--sky)"
-				: "var(--hairline)";
 	return (
-		<div className="grid grid-cols-[28px_minmax(0,1fr)_140px_120px] items-center gap-4 border-b border-hairline px-1 py-3.5 transition-colors hover:bg-mist/60">
-			<div className="grid h-7 w-7 place-items-center rounded-full bg-mist text-[10px] font-semibold text-cobalt">
-				{name
-					.split(" ")
-					.map((s) => s[0])
-					.slice(0, 2)
-					.join("")}
+		<div
+			className={cn(
+				"relative flex items-center justify-between border-b px-6 py-4 transition-colors duration-500",
+				value === "recruiting"
+					? "border-white/15 bg-[var(--color-brand-2)]/30"
+					: "border-[var(--color-brand)]/15 bg-[var(--color-brand-tint)]/40",
+			)}
+		>
+			<div className="w-[160px]" />
+			<div className="absolute left-1/2 -translate-x-1/2">
+				<ModeSwitch value={value} onChange={onChange} />
 			</div>
-			<div className="min-w-0">
-				<div className="truncate text-[14px] font-medium text-ink">{name}</div>
-				<div className="truncate text-[12px] text-slate">{title}</div>
-			</div>
-			<div className="font-mono-display tnum text-[12px] text-slate">
-				{when}
-			</div>
-			<div className="flex items-center gap-2 text-[12px] text-slate">
-				<span
-					className="inline-block h-1.5 w-1.5 rounded-full"
-					style={{ background: dotColor }}
-				/>
-				{status}
+			<div className="flex w-[160px] items-center justify-end gap-1.5">
+				<Link
+					to="/new"
+					className={cn(
+						"inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
+						value === "recruiting"
+							? "border-white/30 bg-white/10 text-white hover:bg-white/15"
+							: "border-[var(--color-brand)]/25 bg-white text-[var(--color-brand)] hover:bg-[var(--color-brand-tint)]",
+					)}
+				>
+					<Plus size={14} weight="bold" />
+					New search
+				</Link>
 			</div>
 		</div>
 	);
 }
 
-function UpNext() {
+function ModeSwitch({
+	value,
+	onChange,
+}: {
+	value: Flow;
+	onChange: (f: Flow) => void;
+}) {
+	const isRecruiting = value === "recruiting";
 	return (
-		<section>
-			<div className="mb-3 border-t border-hairline pt-4">
-				<span className="eyebrow">Up next</span>
-			</div>
-			<div>
-				{UP_NEXT.map((u) => (
-					<div
-						key={u.time}
-						className="grid grid-cols-[60px_minmax(0,1fr)] items-center gap-4 border-b border-hairline py-3.5"
-					>
-						<span className="font-mono-display tnum text-[12px] text-slate">
-							{u.time}
-						</span>
-						<span className="truncate text-[13px] text-ink">{u.who}</span>
-					</div>
-				))}
-			</div>
-			<div className="mt-6 flex items-center gap-3 rounded-[8px] border border-hairline bg-mist/40 px-4 py-3">
-				<div style={{ color: "var(--cobalt)" }}>
-					<KiamiMark size={36} />
+		<div
+			className={cn(
+				"relative inline-grid h-10 grid-cols-2 items-center rounded-full p-1 transition-colors duration-500",
+				isRecruiting
+					? "bg-white/15 ring-1 ring-white/30"
+					: "bg-[var(--color-brand-tint)] ring-1 ring-[var(--color-brand)]/20",
+			)}
+			style={{ width: 280 }}
+		>
+			<span
+				aria-hidden
+				className={cn(
+					"pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+					isRecruiting
+						? "translate-x-0 bg-white shadow-md"
+						: "translate-x-full bg-[var(--color-brand)] shadow-md",
+				)}
+			/>
+			<button
+				type="button"
+				onClick={() => onChange("recruiting")}
+				className={cn(
+					"relative z-10 rounded-full px-4 text-sm font-semibold transition-colors duration-300",
+					isRecruiting
+						? "text-[var(--color-brand)]"
+						: "text-[var(--color-brand)]/70 hover:text-[var(--color-brand)]",
+				)}
+			>
+				Recruiting
+			</button>
+			<button
+				type="button"
+				onClick={() => onChange("sales")}
+				className={cn(
+					"relative z-10 rounded-full px-4 text-sm font-semibold transition-colors duration-300",
+					!isRecruiting
+						? "text-white"
+						: "text-white/80 hover:text-white",
+				)}
+			>
+				Leads
+			</button>
+		</div>
+	);
+}
+
+function EmptyState({ flow }: { flow: Flow }) {
+	const isRecruiting = flow === "recruiting";
+	const examples = isRecruiting
+		? [
+				"Senior backend in Berlin",
+				"Staff PM · EU remote",
+				"iOS · Spanish-fluent",
+			]
+		: [
+				"Series-A HR-tech buyers",
+				"Healthtech CFOs",
+				"VP Marketing · vertical SaaS",
+			];
+
+	return (
+		<div className="grid flex-1 place-items-center px-6 py-10">
+			<div className="max-w-[460px] text-center">
+				<div
+					className={cn(
+						"mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl transition-colors duration-500",
+						isRecruiting
+							? "bg-white/15 text-white ring-1 ring-white/25"
+							: "bg-[var(--color-brand-tint)] text-[var(--color-brand)] ring-1 ring-[var(--color-brand)]/15",
+					)}
+				>
+					<MagnifyingGlass size={26} weight="regular" />
 				</div>
-				<div className="flex-1">
-					<div className="text-[13px] font-medium text-ink">
-						kiami can dial these for you.
-					</div>
-					<div className="mt-0.5 text-[11px] text-slate">
-						Each call opens with the brief Kiami prepared.
-					</div>
+				<h2 className="mb-3 font-heading text-[36px] font-semibold leading-tight tracking-tight">
+					{isRecruiting
+						? "Find your next great hire"
+						: "Find your next customer"}
+				</h2>
+				<p
+					className={cn(
+						"mx-auto mb-6 max-w-[380px] text-[15px] leading-snug",
+						isRecruiting ? "text-white/80" : "text-[var(--color-brand)]/75",
+					)}
+				>
+					Describe who you're looking for in plain English — Kiami builds the
+					filters and runs the search for you.
+				</p>
+				<Link
+					to="/new"
+					className={cn(
+						"inline-flex items-center gap-1.5 rounded-md px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors",
+						isRecruiting
+							? "bg-white text-[var(--color-brand)] hover:bg-white/90"
+							: "bg-[var(--color-brand)] text-white hover:bg-[var(--color-brand-2)]",
+					)}
+				>
+					<Plus size={14} weight="bold" />
+					New search
+				</Link>
+				<div className="mt-8 flex flex-wrap justify-center gap-2">
+					{examples.map((t) => (
+						<Badge
+							key={t}
+							variant="secondary"
+							className={cn(
+								"gap-1.5 border-0 py-1 text-[12px] font-medium",
+								isRecruiting
+									? "bg-white/15 text-white"
+									: "bg-[var(--color-brand-tint)] text-[var(--color-brand)]",
+							)}
+						>
+							<Sparkle
+								size={12}
+								weight="fill"
+								className={
+									isRecruiting ? "text-white" : "text-[var(--color-brand)]"
+								}
+							/>
+							{t}
+						</Badge>
+					))}
 				</div>
 			</div>
-		</section>
+		</div>
 	);
 }

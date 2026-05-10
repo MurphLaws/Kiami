@@ -1,35 +1,47 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
 	ArrowLeft,
+	Buildings,
 	CaretDown,
-	Check,
+	CaretRight,
 	Copy,
 	Export,
+	LinkSimple,
 	LinkedinLogo,
-	MagnifyingGlass,
 	Phone,
+	Sparkle,
 	Spinner,
+	Star,
 	Warning,
-	X,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+	Sheet,
+	SheetContent,
+	SheetDescription,
+	SheetHeader,
+	SheetTitle,
+} from "@/components/ui/sheet";
 import { FocusedHeader } from "@/components/kiami/focused-header";
-import { KiamiMark } from "@/components/kiami/logo";
+import { personNoun, useMode } from "@/components/kiami/flow";
 import {
 	loadResult,
 	useScheduleCall,
 	type StoredLead,
 	type StoredSearchResult,
 } from "@/hooks/use-search";
-import { useMode } from "@/components/kiami/flow";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/results")({
 	component: ResultsPage,
 });
 
+type SourceFilter = "all" | "primary" | "network" | "high";
 type ScheduleState = "idle" | "loading" | "error";
 
 function ResultsPage() {
@@ -38,13 +50,13 @@ function ResultsPage() {
 	const scheduleCall = useScheduleCall();
 
 	const [result, setResult] = useState<StoredSearchResult | null>(null);
-	const [query, setQuery] = useState("");
+	const [filter, setFilter] = useState<SourceFilter>("all");
+	const [activeIdx, setActiveIdx] = useState<number | null>(null);
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
-	const [selected, setSelected] = useState<Set<number>>(new Set());
 	const [scheduleByIdx, setScheduleByIdx] = useState<
 		Record<number, ScheduleState>
 	>({});
-	const [bulkLoading, setBulkLoading] = useState(false);
+	const [globalState, setGlobalState] = useState<ScheduleState>("idle");
 
 	useEffect(() => {
 		const r = loadResult();
@@ -63,28 +75,17 @@ function ResultsPage() {
 		});
 	}, []);
 
-	const toggleSelect = useCallback((i: number) => {
-		setSelected((prev) => {
-			const n = new Set(prev);
-			n.has(i) ? n.delete(i) : n.add(i);
-			return n;
-		});
-	}, []);
-
-	const setOne = useCallback((i: number, s: ScheduleState | undefined) => {
-		setScheduleByIdx((m) => {
-			const n = { ...m };
-			if (!s) delete n[i];
-			else n[i] = s;
-			return n;
-		});
-	}, []);
-
 	const scheduleOne = useCallback(
 		async (idx: number) => {
 			if (!result) return;
 			const lead = result.leads[idx];
-			setOne(idx, "loading");
+			setScheduleByIdx((m) => ({ ...m, [idx]: "loading" }));
+			const clear = () =>
+				setScheduleByIdx((m) => {
+					const n = { ...m };
+					delete n[idx];
+					return n;
+				});
 			try {
 				const res = await scheduleCall({
 					full_name: lead.full_name,
@@ -99,44 +100,50 @@ function ResultsPage() {
 					toast.success(`Call scheduled for ${lead.full_name}`, {
 						description: message,
 					});
-					setOne(idx, undefined);
+					clear();
 				} else {
 					toast.error(`Couldn't schedule ${lead.full_name}`, {
 						description: message,
 					});
-					setOne(idx, "error");
+					setScheduleByIdx((m) => ({ ...m, [idx]: "error" }));
 				}
 			} catch (err) {
 				toast.error(`Couldn't schedule ${lead.full_name}`, {
 					description: err instanceof Error ? err.message : String(err),
 				});
-				setOne(idx, "error");
+				setScheduleByIdx((m) => ({ ...m, [idx]: "error" }));
 			}
 		},
-		[flow, result, scheduleCall, setOne],
+		[flow, result, scheduleCall],
 	);
 
-	const scheduleSelected = useCallback(async () => {
+	const scheduleAll = useCallback(async () => {
 		if (!result) return;
-		const targets = [...selected];
-		if (targets.length === 0) return;
-		setBulkLoading(true);
+		const lowIdx = result.leads
+			.map((_, i) => i)
+			.filter((i) => !result.leads[i].high_profile);
+		if (lowIdx.length === 0) return;
+
+		setGlobalState("loading");
+		// Mark every targeted row as loading too.
 		setScheduleByIdx((m) => {
 			const n = { ...m };
-			for (const i of targets) n[i] = "loading";
+			for (const i of lowIdx) n[i] = "loading";
 			return n;
 		});
+
 		const results = await Promise.allSettled(
-			targets.map((i) =>
+			lowIdx.map((i) =>
 				scheduleCall({
 					full_name: result.leads[i].full_name,
 					company: result.leads[i].company_name,
 					company_domain: result.leads[i].company_domain,
 					flow,
-					tier: result.leads[i].high_profile ? "high" : "low",
+					tier: "low",
 				}).then((r) => ({ i, r })),
 			),
 		);
+
 		let ok = 0;
 		let fail = 0;
 		setScheduleByIdx((m) => {
@@ -158,561 +165,418 @@ function ResultsPage() {
 			}
 			return n;
 		});
-		setBulkLoading(false);
-		setSelected(new Set());
+
 		if (fail === 0) {
 			toast.success(`Scheduled ${ok} call${ok === 1 ? "" : "s"}`);
+			setGlobalState("idle");
 		} else {
-			toast.error(`Scheduled ${ok} of ${targets.length}; ${fail} failed`);
+			toast.error(`Scheduled ${ok} of ${lowIdx.length}; ${fail} failed`);
+			setGlobalState("error");
 		}
-	}, [flow, result, scheduleCall, selected]);
-
-	const filtered = useMemo(() => {
-		if (!result) return [] as Array<{ idx: number; lead: StoredLead }>;
-		const q = query.trim().toLowerCase();
-		const all = result.leads.map((lead, idx) => ({ idx, lead }));
-		if (!q) return all;
-		return all.filter(({ lead }) => {
-			const hay = [
-				lead.full_name,
-				lead.job_title,
-				lead.company_name,
-				lead.company_industry,
-				lead.location,
-			]
-				.filter(Boolean)
-				.join(" ")
-				.toLowerCase();
-			return hay.includes(q);
-		});
-	}, [result, query]);
-
-	const strict = filtered.filter(
-		({ lead }) => lead.match_strictness === "strict" || !lead.match_strictness,
-	);
-	const lax = filtered.filter(({ lead }) => lead.match_strictness === "lax");
+	}, [flow, result, scheduleCall]);
 
 	if (!result) return null;
+
+	const peoplePlural = personNoun(flow, true);
+	const peopleSingular = personNoun(flow, false);
+
+	const visibleIdx = result.leads
+		.map((_, i) => i)
+		.filter((i) => {
+			const l = result.leads[i];
+			if (filter === "all") return true;
+			if (filter === "high") return !!l.high_profile;
+			if (filter === "primary") return l.source === "bettercontact";
+			if (filter === "network") return l.source === "apollo";
+			return true;
+		});
+
+	const primaryCount = result.leads.filter(
+		(l) => l.source === "bettercontact",
+	).length;
+	const networkCount = result.leads.filter(
+		(l) => l.source === "apollo",
+	).length;
+	const highCount = result.leads.filter((l) => l.high_profile).length;
+	const lowCount = result.leads.length - highCount;
+
+	const activeLead = activeIdx !== null ? result.leads[activeIdx] : null;
 	const fatal = classifyError(result);
-	const totalLeads = result.leads.length;
 
 	return (
-		<div className="min-h-screen bg-paper text-ink">
+		<div className="min-h-screen bg-muted">
 			<FocusedHeader />
-
-			<TopBar
-				query={query}
-				onQuery={setQuery}
-				selectedCount={selected.size}
-				totalCount={totalLeads}
-				onClearSelection={() => setSelected(new Set())}
-				onExport={() => exportCsv(result.leads, flow)}
-			/>
-
-			<div className="mx-auto max-w-[1200px] px-8 py-8">
+			<div className="mx-auto max-w-[1200px] px-8 pt-8 pb-16">
 				<div className="mb-6">
 					<Link
 						to="/new"
-						className="inline-flex items-center gap-1.5 text-[13px] text-slate transition-colors hover:text-ink"
+						className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
 					>
-						<ArrowLeft size={13} />
+						<ArrowLeft size={14} />
 						Run another search
 					</Link>
 				</div>
 
-				{fatal && <ErrorBanner fatal={fatal} />}
-
-				{result.rationale && <Rationale text={result.rationale} />}
-
-				{totalLeads === 0 ? (
-					<EmptyState />
-				) : (
-					<>
-						{strict.length > 0 && (
-							<>
-								<GroupHeader
-									label="Strict matches"
-									count={strict.length}
-									description="Leads that satisfy every constraint in the brief."
-								/>
-								<div className="mb-10">
-									{strict.map(({ idx, lead }) => (
-										<ContactRow
-											key={`s-${idx}`}
-											lead={lead}
-											expanded={expanded.has(idx)}
-											selected={selected.has(idx)}
-											scheduleState={scheduleByIdx[idx] ?? "idle"}
-											onToggleExpand={() => toggleExpand(idx)}
-											onToggleSelect={() => toggleSelect(idx)}
-											onSchedule={() => scheduleOne(idx)}
-										/>
-									))}
+				{fatal && (
+					<div
+						className="mb-6 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4"
+						role="alert"
+					>
+						<Warning
+							size={18}
+							weight="fill"
+							className="mt-0.5 shrink-0 text-destructive"
+						/>
+						<div className="flex-1">
+							<div className="font-medium text-foreground">{fatal.title}</div>
+							<p className="mt-1 text-[14px] leading-snug text-muted-foreground">
+								{fatal.body}
+							</p>
+							{fatal.hint && (
+								<div className="mt-2 text-[12px] text-muted-foreground">
+									{fatal.hint}
 								</div>
-							</>
-						)}
-
-						{lax.length > 0 && (
-							<>
-								<GroupHeader
-									label="Wider sweep"
-									count={lax.length}
-									description="Adjacent matches surfaced by the lax filter pass."
-								/>
-								<div className="mb-10">
-									{lax.map(({ idx, lead }) => (
-										<ContactRow
-											key={`l-${idx}`}
-											lead={lead}
-											expanded={expanded.has(idx)}
-											selected={selected.has(idx)}
-											scheduleState={scheduleByIdx[idx] ?? "idle"}
-											onToggleExpand={() => toggleExpand(idx)}
-											onToggleSelect={() => toggleSelect(idx)}
-											onSchedule={() => scheduleOne(idx)}
-										/>
-									))}
-								</div>
-							</>
-						)}
-
-						{strict.length === 0 && lax.length === 0 && query.trim() && (
-							<NoMatches query={query} onClear={() => setQuery("")} />
-						)}
-					</>
+							)}
+						</div>
+					</div>
 				)}
+
+				<div className="mb-7 flex flex-wrap items-start justify-between gap-4">
+					<div>
+						<span className="text-[12px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
+							Results
+						</span>
+						<h1 className="mt-1.5 font-heading text-[36px] font-semibold leading-tight tracking-tight">
+							{result.leads.length}{" "}
+							{result.leads.length === 1 ? peopleSingular : peoplePlural} found
+						</h1>
+						{result.rationale && (
+							<p className="mt-2 max-w-[640px] text-[15px] text-muted-foreground">
+								<Sparkle
+									size={13}
+									weight="fill"
+									color="var(--color-brand)"
+									className="mr-1.5 inline-block"
+								/>
+								{result.rationale}
+							</p>
+						)}
+					</div>
+					<div className="flex flex-wrap items-center gap-2">
+						<GlobalScheduleButton
+							state={globalState}
+							lowCount={lowCount}
+							onClick={scheduleAll}
+						/>
+						<Button
+							variant="outline"
+							className="gap-1.5"
+							onClick={() => exportCsv(result.leads, flow)}
+							disabled={result.leads.length === 0}
+						>
+							<Export size={14} />
+							Export CSV
+						</Button>
+					</div>
+				</div>
+
+				<div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+					<StatCard
+						label="Primary index"
+						count={primaryCount}
+						sub={
+							primaryCount > 0
+								? `${primaryCount} matched directly`
+								: "no direct matches"
+						}
+						accent="var(--color-peach-icon)"
+					/>
+					<StatCard
+						label="Wider sweep"
+						count={networkCount}
+						sub={
+							networkCount > 0
+								? `${networkCount} from secondary sources`
+								: "not needed"
+						}
+						accent="var(--color-coral-icon)"
+					/>
+					<StatCard
+						label="High profile"
+						count={highCount}
+						sub={
+							highCount > 0
+								? `${highCount} flagged for outreach`
+								: "no standouts"
+						}
+						accent="var(--color-brand)"
+					/>
+				</div>
+
+				<div className="mb-3 flex flex-wrap items-center gap-1.5">
+					{(
+						[
+							["all", "All", result.leads.length],
+							["high", "High profile", highCount],
+							["primary", "Primary", primaryCount],
+							["network", "Wider sweep", networkCount],
+						] as const
+					).map(([id, label, n]) => {
+						const active = filter === id;
+						return (
+							<button
+								type="button"
+								key={id}
+								onClick={() => setFilter(id)}
+								className={cn(
+									"inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+									active
+										? "bg-card font-medium text-foreground shadow-xs"
+										: "text-muted-foreground hover:text-foreground",
+								)}
+							>
+								{label}
+								<span
+									className={cn(
+										"min-w-5 rounded px-1.5 text-center text-[11px]",
+										active ? "border bg-card" : "text-muted-foreground",
+									)}
+								>
+									{n}
+								</span>
+							</button>
+						);
+					})}
+				</div>
+
+				<Card className="overflow-hidden bg-card p-0">
+					{visibleIdx.length === 0 ? (
+						<div className="px-8 py-14 text-center">
+							<div className="font-heading text-[22px] font-semibold tracking-tight">
+								No matching {peoplePlural}
+							</div>
+							<p className="mx-auto mt-2 max-w-[420px] text-[14px] text-muted-foreground">
+								Try widening your brief — fewer must-haves, broader geography,
+								or a more common job title.
+							</p>
+							<Link
+								to="/new"
+								className={cn(
+									buttonVariants({ variant: "outline" }),
+									"mt-5 gap-1.5",
+								)}
+							>
+								<ArrowLeft size={14} />
+								Tweak the brief
+							</Link>
+						</div>
+					) : (
+						<>
+							<div className="grid grid-cols-[28px_28px_1fr_180px_140px_120px_140px_36px] items-center gap-4 border-b bg-muted px-4 py-2.5 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+								<span />
+								<span />
+								<span>{peopleSingular}</span>
+								<span>Company</span>
+								<span>Location</span>
+								<span>Source</span>
+								<span />
+								<span />
+							</div>
+							{visibleIdx.map((idx, i) => {
+								const l = result.leads[idx];
+								const isHigh = !!l.high_profile;
+								const isOpen = expanded.has(idx);
+								const sched = scheduleByIdx[idx] ?? "idle";
+								return (
+									<div
+										key={`${l.source}-${l.linkedin_url ?? l.full_name}-${idx}`}
+									>
+										<div
+											className={cn(
+												"grid grid-cols-[28px_28px_1fr_180px_140px_120px_140px_36px] items-center gap-4 px-4 py-3.5 text-sm transition-colors",
+												i < visibleIdx.length - 1 && !isOpen && "border-b",
+											)}
+										>
+											<button
+												type="button"
+												onClick={() => toggleExpand(idx)}
+												className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+												aria-label={isOpen ? "Collapse" : "Expand"}
+											>
+												{isOpen ? (
+													<CaretDown size={14} weight="bold" />
+												) : (
+													<CaretRight size={14} weight="bold" />
+												)}
+											</button>
+											<button
+												type="button"
+												onClick={() => isHigh && setActiveIdx(idx)}
+												className="grid h-5 w-5 place-items-center"
+												aria-label={isHigh ? "Open brief" : ""}
+											>
+												{isHigh ? (
+													<Star
+														size={14}
+														weight="fill"
+														color="var(--color-brand)"
+													/>
+												) : null}
+											</button>
+											<div className="min-w-0">
+												<div className="flex items-center gap-2">
+													<span className="truncate font-medium text-foreground">
+														{l.full_name}
+													</span>
+													{isHigh && (
+														<Badge
+															variant="secondary"
+															className="py-0.5 text-[10px]"
+															style={{
+																background: "var(--color-brand-tint)",
+																color: "var(--color-brand)",
+															}}
+														>
+															High profile
+														</Badge>
+													)}
+												</div>
+												<div className="mt-0.5 truncate text-[12px] text-muted-foreground">
+													{[l.job_title, l.seniority]
+														.filter(Boolean)
+														.join(" · ") || "—"}
+												</div>
+											</div>
+											<div className="min-w-0">
+												<div className="flex items-center gap-1.5 truncate text-[13px] text-foreground/80">
+													<Buildings size={12} />
+													<span className="truncate">
+														{l.company_name ?? "—"}
+													</span>
+												</div>
+												<div className="truncate text-[11px] text-muted-foreground">
+													{l.company_industry ?? l.company_domain ?? ""}
+												</div>
+											</div>
+											<span className="truncate text-[13px] text-muted-foreground">
+												{l.location ?? "—"}
+											</span>
+											<SourceBadge source={l.source} />
+											<div>
+												{!isHigh ? (
+													<ScheduleButton
+														state={sched}
+														onClick={() => scheduleOne(idx)}
+													/>
+												) : (
+													<Button
+														size="sm"
+														variant="outline"
+														className="gap-1.5"
+														onClick={() => setActiveIdx(idx)}
+													>
+														<Sparkle
+															size={12}
+															weight="fill"
+															color="var(--color-brand)"
+														/>
+														Brief
+													</Button>
+												)}
+											</div>
+											<div className="justify-self-end">
+												{l.linkedin_url ? (
+													<a
+														href={l.linkedin_url}
+														target="_blank"
+														rel="noreferrer"
+														onClick={(e) => e.stopPropagation()}
+														className="p-1.5 text-muted-foreground hover:text-foreground"
+													>
+														<LinkSimple size={14} weight="bold" />
+													</a>
+												) : null}
+											</div>
+										</div>
+										{isOpen && (
+											<FoldedDetails lead={l} last={i === visibleIdx.length - 1} />
+										)}
+									</div>
+								);
+							})}
+						</>
+					)}
+				</Card>
 			</div>
 
-			<BulkActionBar
-				count={selected.size}
-				loading={bulkLoading}
-				onCancel={() => setSelected(new Set())}
-				onSchedule={scheduleSelected}
+			<HighProfileDrawer
+				open={activeIdx !== null && (result.leads[activeIdx]?.high_profile ?? false)}
+				onOpenChange={(o) => !o && setActiveIdx(null)}
+				lead={activeLead}
+				flow={flow}
 			/>
 		</div>
 	);
 }
 
-/* ---------- Top sticky bar ---------- */
-
-function TopBar({
-	query,
-	onQuery,
-	selectedCount,
-	totalCount,
-	onClearSelection,
-	onExport,
-}: {
-	query: string;
-	onQuery: (v: string) => void;
-	selectedCount: number;
-	totalCount: number;
-	onClearSelection: () => void;
-	onExport: () => void;
-}) {
-	return (
-		<div className="sticky top-0 z-30 border-b border-hairline bg-paper/95 backdrop-blur-md">
-			<div className="mx-auto flex max-w-[1200px] items-center gap-4 px-8 py-3">
-				<div className="relative flex-1 max-w-[420px]">
-					<MagnifyingGlass
-						size={14}
-						className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate"
-					/>
-					<input
-						value={query}
-						onChange={(e) => onQuery(e.target.value)}
-						placeholder="Search by name, company, or title…"
-						className="block w-full rounded-[4px] border border-hairline bg-paper py-2 pr-3 pl-9 text-[13px] text-ink outline-none transition-colors placeholder:text-slate focus:border-cobalt focus:ring-2 focus:ring-cobalt/15"
-					/>
-				</div>
-				<div className="flex items-center gap-3 text-[13px]">
-					<span className="eyebrow">{totalCount} contacts</span>
-					{selectedCount > 0 && (
-						<button
-							type="button"
-							onClick={onClearSelection}
-							className="inline-flex items-center gap-1.5 rounded-[4px] bg-mist px-2.5 py-1 text-[12px] font-medium text-cobalt transition-colors hover:bg-mist/70"
-						>
-							{selectedCount} selected
-							<X size={11} weight="bold" />
-						</button>
-					)}
-				</div>
-				<div className="ml-auto">
-					<button
-						type="button"
-						onClick={onExport}
-						className="inline-flex items-center gap-1.5 rounded-[4px] border border-hairline bg-paper px-3 py-1.5 text-[13px] text-ink transition-colors hover:bg-mist"
-					>
-						<Export size={13} />
-						Export CSV
-					</button>
-				</div>
-			</div>
-		</div>
-	);
-}
-
-/* ---------- Rationale + group header + error banner ---------- */
-
-function Rationale({ text }: { text: string }) {
-	return (
-		<div className="mb-8 max-w-[680px]">
-			<span className="eyebrow">Search rationale</span>
-			<p className="mt-2 text-[15px] leading-snug text-ink">{text}</p>
-		</div>
-	);
-}
-
-function GroupHeader({
+function StatCard({
 	label,
 	count,
-	description,
+	sub,
+	accent,
 }: {
 	label: string;
 	count: number;
-	description: string;
+	sub: string;
+	accent: string;
 }) {
 	return (
-		<div className="mb-3 flex items-baseline justify-between border-t border-hairline pt-4">
-			<div>
-				<span className="eyebrow">{label}</span>
-				<p className="mt-1 text-[13px] text-slate">{description}</p>
+		<Card className="p-4">
+			<div className="flex items-center gap-2">
+				<span
+					className="h-2 w-2 rounded-sm"
+					style={{ background: accent }}
+				/>
+				<span className="text-[12px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+					{label}
+				</span>
 			</div>
-			<span className="font-mono-display tnum text-[12px] text-slate">
-				{String(count).padStart(2, "0")}
-			</span>
-		</div>
+			<div className="mt-2 font-heading text-[28px] font-semibold leading-none tracking-tight">
+				{count}
+			</div>
+			<div className="mt-1.5 text-[12px] text-muted-foreground">{sub}</div>
+		</Card>
 	);
 }
 
-function ErrorBanner({
-	fatal,
-}: {
-	fatal: { title: string; body: string; hint?: string };
-}) {
+function SourceBadge({ source }: { source: "bettercontact" | "apollo" }) {
+	const isPrimary = source === "bettercontact";
+	const label = isPrimary ? "Primary" : "Wider sweep";
 	return (
-		<div
-			role="alert"
-			className="mb-6 flex items-start gap-3 rounded-[8px] border border-danger/25 bg-danger/5 p-4"
+		<Badge
+			variant="secondary"
+			className="gap-1.5 py-1"
+			style={{
+				background: isPrimary
+					? "var(--color-peach-tint)"
+					: "var(--color-coral-tint)",
+				color: isPrimary
+					? "var(--color-peach-icon)"
+					: "var(--color-coral-icon)",
+			}}
 		>
-			<Warning
-				size={18}
-				weight="fill"
-				className="mt-0.5 shrink-0 text-danger"
-				color="var(--danger)"
-			/>
-			<div className="flex-1">
-				<div className="font-medium text-ink">{fatal.title}</div>
-				<p className="mt-1 text-[14px] leading-snug text-slate">
-					{fatal.body}
-				</p>
-				{fatal.hint && (
-					<div className="mt-2 text-[12px] text-slate">{fatal.hint}</div>
-				)}
-			</div>
-		</div>
-	);
-}
-
-/* ---------- Contact row ---------- */
-
-function ContactRow({
-	lead,
-	expanded,
-	selected,
-	scheduleState,
-	onToggleExpand,
-	onToggleSelect,
-	onSchedule,
-}: {
-	lead: StoredLead;
-	expanded: boolean;
-	selected: boolean;
-	scheduleState: ScheduleState;
-	onToggleExpand: () => void;
-	onToggleSelect: () => void;
-	onSchedule: () => void;
-}) {
-	const initials = getInitials(lead.full_name);
-	const tag = leadTag(lead);
-
-	return (
-		<div
-			className={cn(
-				"group relative border-b border-hairline transition-colors",
-				selected ? "bg-mist" : "hover:bg-mist/60",
-				selected &&
-					"after:absolute after:inset-y-0 after:left-0 after:w-[2px] after:bg-cobalt",
-			)}
-			style={{ transition: "background-color var(--ease-state)" }}
-		>
-			<div className="grid grid-cols-[24px_28px_minmax(0,1fr)_minmax(0,1fr)_140px_140px_24px] items-center gap-4 px-4 py-3.5">
-				{/* Select */}
-				<button
-					type="button"
-					onClick={onToggleSelect}
-					aria-label={selected ? "Deselect" : "Select"}
-					className={cn(
-						"grid h-4 w-4 place-items-center rounded-[2px] border transition-colors",
-						selected
-							? "border-cobalt bg-cobalt text-paper"
-							: "border-hairline bg-paper text-paper opacity-0 group-hover:opacity-100",
-					)}
-				>
-					{selected && <Check size={11} weight="bold" />}
-				</button>
-
-				{/* Avatar */}
-				<div className="grid h-7 w-7 place-items-center rounded-full bg-mist text-[10px] font-semibold text-cobalt">
-					{initials}
-				</div>
-
-				{/* Name + title */}
-				<button
-					type="button"
-					onClick={onToggleExpand}
-					className="min-w-0 text-left"
-				>
-					<div className="truncate text-[14px] font-medium text-ink">
-						{lead.full_name}
-					</div>
-					<div className="mt-0.5 truncate text-[12px] text-slate">
-						{lead.job_title ?? "—"}
-					</div>
-				</button>
-
-				{/* Company + industry */}
-				<button
-					type="button"
-					onClick={onToggleExpand}
-					className="min-w-0 text-left"
-				>
-					<div className="truncate text-[14px] font-medium text-ink">
-						{lead.company_name ?? "—"}
-					</div>
-					<div className="truncate text-[12px] text-slate">
-						{lead.company_industry ?? lead.location ?? ""}
-					</div>
-				</button>
-
-				{/* Classification tag */}
-				<div>{tag && <ClassificationTag tag={tag} />}</div>
-
-				{/* Schedule */}
-				<div>
-					<ScheduleButton state={scheduleState} onClick={onSchedule} />
-				</div>
-
-				{/* Caret */}
-				<button
-					type="button"
-					onClick={onToggleExpand}
-					aria-label={expanded ? "Collapse" : "Expand"}
-					className="grid h-7 w-7 place-items-center rounded-full text-slate transition-colors hover:bg-mist hover:text-ink"
-				>
-					<CaretDown
-						size={12}
-						weight="bold"
-						className="transition-transform"
-						style={{
-							transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-							transitionDuration: "150ms",
-							transitionTimingFunction: "ease-out",
-						}}
-					/>
-				</button>
-			</div>
-
-			{expanded && <FoldedDetails lead={lead} />}
-		</div>
-	);
-}
-
-/* ---------- Folded details ---------- */
-
-function FoldedDetails({ lead }: { lead: StoredLead }) {
-	const [copied, setCopied] = useState(false);
-	const copyOpener = async () => {
-		const opener = lead.brief?.suggested_opener;
-		if (!opener) return;
-		try {
-			await navigator.clipboard.writeText(opener);
-			setCopied(true);
-			window.setTimeout(() => setCopied(false), 1500);
-		} catch {}
-	};
-
-	const signals: Array<[string, string | null]> = [
-		["Industry", lead.company_industry ?? null],
-		[
-			"Headcount",
-			lead.company_headcount != null ? String(lead.company_headcount) : null,
-		],
-		["Location", lead.location ?? null],
-		["Seniority", lead.seniority ?? null],
-		["Domain", lead.company_domain ?? null],
-		[
-			"Source",
-			lead.source === "bettercontact" ? "Primary index" : "Wider sweep",
-		],
-	];
-	const filledSignals = signals.filter(([, v]) => v && String(v).trim());
-
-	return (
-		<div className="kiami-row-expand border-t border-hairline bg-paper px-4 py-7 pl-[64px]">
-			{lead.brief && (
-				<div className="mb-7 max-w-[760px] border-l-[3px] border-cobalt bg-mist/70 p-5">
-					<span className="eyebrow">Why they fit</span>
-					<p className="mt-2 text-[14px] leading-relaxed text-ink">
-						{lead.brief.why_they_fit}
-					</p>
-					{lead.brief.suggested_opener && (
-						<div className="mt-4">
-							<div className="mb-1.5 flex items-center justify-between">
-								<span className="eyebrow">Suggested opener</span>
-								<button
-									type="button"
-									onClick={copyOpener}
-									className="inline-flex items-center gap-1 font-mono-display text-[10px] tracking-[0.18em] text-slate uppercase transition-colors hover:text-cobalt"
-								>
-									{copied ? (
-										<>
-											<Check size={10} weight="bold" />
-											Copied
-										</>
-									) : (
-										<>
-											<Copy size={10} weight="bold" />
-											Copy
-										</>
-									)}
-								</button>
-							</div>
-							<p
-								className="border-l border-cobalt/30 pl-3 text-[14px] leading-relaxed text-ink"
-								style={{ fontStyle: "italic" }}
-							>
-								"{lead.brief.suggested_opener}"
-							</p>
-						</div>
-					)}
-				</div>
-			)}
-
-			<div className="grid max-w-[760px] grid-cols-2 gap-x-8 md:grid-cols-3">
-				{filledSignals.map(([k, v]) => {
-					const isNumeric = /^[\d.,\s]+$/.test(String(v));
-					return (
-						<div key={k} className="border-t border-hairline py-3">
-							<span className="eyebrow">{k}</span>
-							<div
-								className={cn(
-									"mt-1 text-[13px] text-ink",
-									isNumeric && "font-mono-display tnum",
-								)}
-							>
-								{v}
-							</div>
-						</div>
-					);
-				})}
-				{lead.classification && (
-					<ClassificationCell classification={lead.classification} />
-				)}
-			</div>
-
-			{lead.linkedin_url && (
-				<div className="mt-5 max-w-[760px]">
-					<a
-						href={lead.linkedin_url}
-						target="_blank"
-						rel="noreferrer"
-						className="inline-flex items-center gap-1.5 text-[12px] text-cobalt transition-colors hover:text-deep"
-					>
-						<LinkedinLogo size={12} weight="fill" />
-						Open LinkedIn profile
-					</a>
-				</div>
-			)}
-		</div>
-	);
-}
-
-function ClassificationCell({
-	classification,
-}: {
-	classification: NonNullable<StoredLead["classification"]>;
-}) {
-	let label = "";
-	let value = "";
-	let highlight = false;
-	if (classification.kind === "lead") {
-		label = "Tier";
-		value = classification.tier;
-		highlight = classification.tier === "hot";
-	} else {
-		label = "Recommendation";
-		value = classification.recommendation;
-		highlight = classification.recommendation === "shortlist";
-	}
-	return (
-		<div className="border-t border-hairline py-3">
-			<span className="eyebrow">{label}</span>
-			<div className="mt-1 flex items-center gap-2 text-[13px] text-ink">
-				{highlight && (
-					<span className="inline-block h-1.5 w-1.5 rounded-full bg-sky" />
-				)}
-				<span className="capitalize">{value}</span>
-			</div>
-			{classification.reasoning && (
-				<p className="mt-1 text-[12px] leading-snug text-slate">
-					{classification.reasoning}
-				</p>
-			)}
-		</div>
-	);
-}
-
-/* ---------- Classification chip in row ---------- */
-
-type Tag = { label: string; tone: "hot" | "warm" | "cold" | "neutral" };
-
-function leadTag(lead: StoredLead): Tag | null {
-	if (!lead.classification) {
-		return lead.high_profile ? { label: "High profile", tone: "warm" } : null;
-	}
-	if (lead.classification.kind === "lead") {
-		return {
-			label: lead.classification.tier,
-			tone: lead.classification.tier,
-		};
-	}
-	const rec = lead.classification.recommendation;
-	const tone: Tag["tone"] =
-		rec === "shortlist" ? "hot" : rec === "screen" ? "warm" : "cold";
-	return { label: rec, tone };
-}
-
-function ClassificationTag({ tag }: { tag: Tag }) {
-	const dotColor =
-		tag.tone === "hot"
-			? "var(--cobalt)"
-			: tag.tone === "warm"
-				? "var(--sky)"
-				: "var(--hairline)";
-	return (
-		<div className="inline-flex items-center gap-2 text-[12px] text-slate">
 			<span
-				className="inline-block h-1.5 w-1.5 rounded-full"
-				style={{ background: dotColor }}
+				className="h-1.5 w-1.5 rounded-full"
+				style={{
+					background: isPrimary
+						? "var(--color-peach-icon)"
+						: "var(--color-coral-icon)",
+				}}
 			/>
-			<span className="capitalize">{tag.label}</span>
-		</div>
+			{label}
+		</Badge>
 	);
 }
-
-/* ---------- Schedule button (idle / loading-green / error) ---------- */
 
 function ScheduleButton({
 	state,
@@ -724,159 +588,140 @@ function ScheduleButton({
 	const loading = state === "loading";
 	const error = state === "error";
 	return (
-		<div className="relative inline-flex">
-			{loading && (
-				<span
-					aria-hidden
-					className="kiami-call-pulse pointer-events-none absolute inset-0 rounded-[4px]"
-				/>
+		<Button
+			size="sm"
+			variant="outline"
+			disabled={loading}
+			onClick={onClick}
+			className={cn(
+				"min-w-[130px] gap-1.5 transition-colors",
+				loading &&
+					"!bg-[#22A06B] !text-white hover:!bg-[#22A06B] !border-[#22A06B] disabled:opacity-100",
+				error && "!border-destructive !text-destructive",
 			)}
-			<button
-				type="button"
-				disabled={loading}
-				onClick={onClick}
-				className={cn(
-					"relative z-10 inline-flex h-8 min-w-[124px] items-center justify-center gap-1.5 rounded-[4px] px-3 text-[12px] font-medium transition-colors",
-					!loading &&
-						!error &&
-						"border border-cobalt bg-paper text-cobalt hover:bg-mist",
-					loading && "border border-[#1F8A5B] bg-[#1F8A5B] text-paper",
-					error && "border border-danger bg-paper text-danger",
-				)}
-			>
-				{loading ? (
-					<>
-						<Spinner size={11} className="animate-spin" />
-						Scheduling…
-					</>
-				) : error ? (
-					<>
-						<Warning size={11} weight="fill" />
-						Retry
-					</>
-				) : (
-					<>
-						<Phone size={11} weight="bold" />
-						Schedule call
-					</>
-				)}
-			</button>
-		</div>
+		>
+			{loading ? (
+				<>
+					<Spinner size={12} className="animate-spin" />
+					Scheduling…
+				</>
+			) : (
+				<>
+					<Phone size={12} weight="bold" />
+					Schedule call
+				</>
+			)}
+		</Button>
 	);
 }
 
-/* ---------- Bulk action bar ---------- */
-
-function BulkActionBar({
-	count,
-	loading,
-	onCancel,
-	onSchedule,
+function GlobalScheduleButton({
+	state,
+	lowCount,
+	onClick,
 }: {
-	count: number;
-	loading: boolean;
-	onCancel: () => void;
-	onSchedule: () => void;
+	state: ScheduleState;
+	lowCount: number;
+	onClick: () => void;
 }) {
-	if (count === 0) return null;
+	const loading = state === "loading";
+	const error = state === "error";
+	if (lowCount === 0) return null;
+	return (
+		<Button
+			size="default"
+			variant="outline"
+			disabled={loading}
+			onClick={onClick}
+			className={cn(
+				"gap-1.5 transition-colors",
+				loading &&
+					"!bg-[#22A06B] !text-white hover:!bg-[#22A06B] !border-[#22A06B] disabled:opacity-100",
+				error && "!border-destructive !text-destructive",
+			)}
+		>
+			{loading ? (
+				<>
+					<Spinner size={14} className="animate-spin" />
+					Scheduling {lowCount}…
+				</>
+			) : (
+				<>
+					<Phone size={14} weight="bold" />
+					Schedule {lowCount} call{lowCount === 1 ? "" : "s"}
+				</>
+			)}
+		</Button>
+	);
+}
+
+function FoldedDetails({ lead, last }: { lead: StoredLead; last: boolean }) {
+	// Pull every populated field out of the raw upstream payload so the
+	// recruiter can see what we actually have. Hide nullish, empty arrays,
+	// and obvious internal-only fields.
+	const raw = lead.raw ?? {};
+	const entries = Object.entries(raw)
+		.filter(([k, v]) => {
+			if (k.startsWith("_")) return false;
+			if (k === "raw") return false;
+			if (v === null || v === undefined) return false;
+			if (Array.isArray(v) && v.length === 0) return false;
+			if (typeof v === "string" && v.trim() === "") return false;
+			if (typeof v === "object") return Object.keys(v as object).length > 0;
+			return true;
+		})
+		.sort((a, b) => a[0].localeCompare(b[0]));
+
 	return (
 		<div
-			className="kiami-fade-up fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-[10px] bg-ink px-4 py-3 shadow-lg"
-			style={{ boxShadow: "var(--shadow-md)" }}
+			className={cn(
+				"grid grid-cols-1 gap-4 bg-muted/40 px-4 py-5 md:grid-cols-2",
+				!last && "border-b",
+			)}
 		>
-			<span className="font-mono-display text-[11px] tracking-[0.18em] text-paper/70 uppercase">
-				{count} selected
-			</span>
-			<span className="h-4 w-px bg-paper/15" />
-			<button
-				type="button"
-				disabled={loading}
-				onClick={onSchedule}
-				className={cn(
-					"inline-flex items-center gap-1.5 rounded-[4px] px-3 py-1.5 text-[12px] font-medium transition-colors",
-					loading
-						? "bg-[#1F8A5B] text-paper"
-						: "bg-paper text-ink hover:bg-mist",
+			<div className="md:col-span-2">
+				<div className="mb-2 flex items-center gap-2 text-[11px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
+					Full record
+					<span className="text-muted-foreground/70">
+						· {entries.length} fields
+					</span>
+				</div>
+				{entries.length === 0 && (
+					<div className="text-[13px] text-muted-foreground">
+						No additional fields available for this contact.
+					</div>
 				)}
-			>
-				{loading ? (
-					<>
-						<Spinner size={11} className="animate-spin" />
-						Scheduling…
-					</>
-				) : (
-					<>
-						<Phone size={11} weight="bold" />
-						Schedule {count} call{count === 1 ? "" : "s"}
-					</>
-				)}
-			</button>
-			<button
-				type="button"
-				onClick={onCancel}
-				className="inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-paper/60 transition-colors hover:bg-paper/10 hover:text-paper"
-				aria-label="Clear selection"
-			>
-				<X size={12} weight="bold" />
-			</button>
-		</div>
-	);
-}
-
-/* ---------- Empty + no-match states ---------- */
-
-function EmptyState() {
-	return (
-		<div className="grid place-items-center py-20 text-center">
-			<div style={{ color: "var(--cobalt)" }}>
-				<KiamiMark size={96} />
 			</div>
-			<h2
-				className="mt-6 text-ink"
-				style={{ fontSize: "var(--type-h1)", fontWeight: 700, letterSpacing: "-0.02em" }}
-			>
-				No contacts yet
-			</h2>
-			<p className="mt-2 max-w-[420px] text-[15px] text-slate">
-				Kiami needs a brief to find people. Describe who you're looking for in
-				plain English and we'll do the rest.
-			</p>
-			<Link
-				to="/new"
-				className="mt-6 inline-flex items-center gap-1.5 rounded-[4px] bg-cobalt px-5 py-2.5 text-[13px] font-medium text-paper transition-colors hover:bg-deep"
-			>
-				Run a search
-			</Link>
+			{entries.map(([k, v]) => (
+				<div
+					key={k}
+					className="flex flex-col gap-1 rounded-lg border bg-card px-3 py-2"
+				>
+					<span className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+						{k.replace(/_/g, " ")}
+					</span>
+					<span className="break-words text-[13px] text-foreground">
+						{renderValue(v)}
+					</span>
+				</div>
+			))}
 		</div>
 	);
 }
 
-function NoMatches({ query, onClear }: { query: string; onClear: () => void }) {
-	return (
-		<div className="border-t border-hairline py-12 text-center">
-			<p className="text-[14px] text-slate">
-				No contacts match "<span className="text-ink">{query}</span>".
-			</p>
-			<button
-				type="button"
-				onClick={onClear}
-				className="mt-2 inline-flex items-center gap-1.5 font-mono-display text-[11px] tracking-[0.18em] text-cobalt uppercase transition-colors hover:text-deep"
-			>
-				Clear search
-			</button>
-		</div>
-	);
-}
-
-/* ---------- Helpers ---------- */
-
-function getInitials(name: string): string {
-	return name
-		.split(/\s+/)
-		.filter(Boolean)
-		.slice(0, 2)
-		.map((s) => s[0]?.toUpperCase() ?? "")
-		.join("");
+function renderValue(v: unknown): string {
+	if (v === null || v === undefined) return "—";
+	if (typeof v === "string") return v;
+	if (typeof v === "number" || typeof v === "boolean") return String(v);
+	if (Array.isArray(v)) return v.map(renderValue).join(", ");
+	if (typeof v === "object") {
+		try {
+			return JSON.stringify(v);
+		} catch {
+			return "[object]";
+		}
+	}
+	return String(v);
 }
 
 function describeResponse(res: unknown): string {
@@ -894,6 +739,162 @@ function describeResponse(res: unknown): string {
 	return [body, status, ms].filter(Boolean).join(" · ");
 }
 
+function HighProfileDrawer({
+	open,
+	onOpenChange,
+	lead,
+	flow,
+}: {
+	open: boolean;
+	onOpenChange: (o: boolean) => void;
+	lead: StoredLead | null;
+	flow: "recruiting" | "sales";
+}) {
+	const [copied, setCopied] = useState<"opener" | null>(null);
+	if (!lead) {
+		return (
+			<Sheet open={open} onOpenChange={onOpenChange}>
+				<SheetContent side="right" />
+			</Sheet>
+		);
+	}
+	const copy = async (text: string, key: "opener") => {
+		try {
+			await navigator.clipboard.writeText(text);
+			setCopied(key);
+			window.setTimeout(() => setCopied(null), 1500);
+		} catch {}
+	};
+	const verb = flow === "sales" ? "reach out" : "open a conversation";
+	return (
+		<Sheet open={open} onOpenChange={onOpenChange}>
+			<SheetContent
+				side="right"
+				className="sm:max-w-md md:max-w-lg lg:max-w-xl"
+			>
+				<SheetHeader>
+					<div className="flex items-center gap-2">
+						<Star size={14} weight="fill" color="var(--color-brand)" />
+						<span className="text-[11px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
+							High profile
+						</span>
+					</div>
+					<SheetTitle className="font-heading text-[24px] tracking-tight">
+						{lead.full_name}
+					</SheetTitle>
+					<SheetDescription>
+						{[lead.job_title, lead.seniority].filter(Boolean).join(" · ") ||
+							"—"}
+					</SheetDescription>
+				</SheetHeader>
+
+				<div className="grid gap-4 px-4 pb-4">
+					<div className="grid gap-2 rounded-xl border bg-card p-4">
+						<div className="flex items-start gap-2">
+							<Buildings
+								size={14}
+								className="mt-0.5 shrink-0 text-muted-foreground"
+							/>
+							<div className="min-w-0">
+								<div className="font-medium text-foreground">
+									{lead.company_name ?? "—"}
+								</div>
+								<div className="text-[12px] text-muted-foreground">
+									{[lead.company_industry, lead.company_domain]
+										.filter(Boolean)
+										.join(" · ") || ""}
+								</div>
+							</div>
+						</div>
+						{lead.location && (
+							<div className="text-[12px] text-muted-foreground">
+								Based in {lead.location}
+							</div>
+						)}
+					</div>
+
+					{lead.brief ? (
+						<>
+							<section>
+								<div className="mb-1.5 flex items-center gap-2">
+									<Sparkle
+										size={13}
+										weight="fill"
+										color="var(--color-brand)"
+									/>
+									<span className="text-[11px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
+										Why they fit
+									</span>
+								</div>
+								<p className="text-[14px] leading-relaxed text-foreground">
+									{lead.brief.why_they_fit}
+								</p>
+							</section>
+
+							<section>
+								<div className="mb-1.5 flex items-center justify-between">
+									<span className="text-[11px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
+										Suggested opener
+									</span>
+									<button
+										type="button"
+										onClick={() =>
+											copy(lead.brief?.suggested_opener ?? "", "opener")
+										}
+										className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+									>
+										<Copy size={12} weight="bold" />
+										{copied === "opener" ? "Copied" : "Copy"}
+									</button>
+								</div>
+								<p
+									className="rounded-xl border bg-muted px-3.5 py-3 text-[14px] leading-relaxed text-foreground"
+									style={{ fontStyle: "italic" }}
+								>
+									{lead.brief.suggested_opener}
+								</p>
+							</section>
+						</>
+					) : (
+						<div className="rounded-xl border border-dashed bg-muted/40 px-4 py-6 text-center text-[13px] text-muted-foreground">
+							A brief wasn't generated for this {personNoun(flow)}. Use the
+							LinkedIn link to {verb}.
+						</div>
+					)}
+				</div>
+
+				<div className="mt-auto flex flex-wrap gap-2 border-t bg-card px-4 py-3">
+					{lead.linkedin_url ? (
+						<a
+							href={lead.linkedin_url}
+							target="_blank"
+							rel="noreferrer"
+							className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
+						>
+							<LinkedinLogo size={14} weight="fill" />
+							Open LinkedIn
+						</a>
+					) : null}
+					{lead.company_domain && (
+						<a
+							href={`https://${lead.company_domain.replace(/^https?:\/\//, "")}`}
+							target="_blank"
+							rel="noreferrer"
+							className={cn(
+								buttonVariants({ size: "sm", variant: "outline" }),
+								"gap-1.5",
+							)}
+						>
+							<LinkSimple size={14} />
+							Visit company
+						</a>
+					)}
+				</div>
+			</SheetContent>
+		</Sheet>
+	);
+}
+
 function exportCsv(
 	leads: StoredSearchResult["leads"],
 	flow: "recruiting" | "sales",
@@ -902,7 +903,6 @@ function exportCsv(
 	const headers = [
 		"source",
 		"high_profile",
-		"match_strictness",
 		"full_name",
 		"job_title",
 		"seniority",
@@ -920,7 +920,6 @@ function exportCsv(
 			.map((h) => {
 				if (h === "source") return csvCell(sourceLabel);
 				if (h === "high_profile") return csvCell(l.high_profile ? "yes" : "");
-				if (h === "match_strictness") return csvCell(l.match_strictness ?? "");
 				if (h === "why_they_fit") return csvCell(l.brief?.why_they_fit ?? "");
 				if (h === "suggested_opener")
 					return csvCell(l.brief?.suggested_opener ?? "");
@@ -953,7 +952,8 @@ function classifyError(
 	const apolloErr = r.apollo.error ?? "";
 	const total = r.leads.length;
 
-	const outOfCredits = /402|tokens|credits|insufficient|not enough/i.test(bcErr);
+	const outOfCredits =
+		/402|tokens|credits|insufficient|not enough/i.test(bcErr);
 	const apolloPlanIssue = /403|api_key on a free plan|inaccessible/i.test(
 		apolloErr,
 	);
@@ -979,7 +979,10 @@ function classifyError(
 		};
 	}
 	if (total === 0 && bcErr) {
-		return { title: "Search couldn't complete", body: bcErr };
+		return {
+			title: "Search couldn't complete",
+			body: bcErr,
+		};
 	}
 	if (total === 0 && apolloPlanIssue && (r.bc.leads_found ?? 0) === 0) {
 		return {
