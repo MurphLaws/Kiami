@@ -1,15 +1,18 @@
 "use node";
 
 // Run a lead search:
-//   1. Use OpenAI to translate the brief into typed BC + Apollo filters.
-//   2. Submit to BetterContact and poll until terminal.
-//   3. If BC returned fewer than `apolloFallbackThreshold` leads, also run
-//      an Apollo people search. We tag every returned lead with `source`
-//      so the UI can show who found it.
-//   4. Strip BC PII (email/phone) at the BC client. Apollo people search
+//   1. Use OpenAI to translate the brief into TWO filter sets per source:
+//      a `strict` reading (the precise interpretation) and a `lax` reading
+//      (deliberately widened — ±1 seniority band, adjacent industries,
+//      2-3x headcount, softer locations, fewer must-have skills).
+//   2. Submit BC + Apollo with the LAX set so we get a bigger pool.
+//   3. Strip BC PII (email/phone) at the BC client. Apollo people search
 //      doesn't include email/phone on the free tier — exactly what we want.
-//   5. Score the leads, mark the top ~20% as "high profile", and batch-
-//      generate one outreach brief per high-profile lead via OpenAI.
+//   4. For each returned lead, evaluate whether it ALSO satisfies the
+//      strict set. Strict matches are tagged "strict" + flagged
+//      high_profile (capped at 5); lax-only matches stay low_profile.
+//   5. Score the strict matches and batch-generate one outreach brief
+//      per high-profile lead via OpenAI.
 
 import { v } from "convex/values";
 
@@ -29,7 +32,11 @@ import {
 	pickHighProfile,
 	scoreLead,
 } from "./wrappers/briefs";
-import { inferFilters, type InferredFilters } from "./wrappers/openai";
+import {
+	inferFilters,
+	type BcFilterSet,
+	type InferredFilters,
+} from "./wrappers/openai";
 
 const APOLLO_FALLBACK_THRESHOLD = 5;
 
@@ -75,16 +82,19 @@ export const runSearch = action({
 		};
 
 		// Server-side rescue: even with a tightened prompt the model still
-		// occasionally produces filters that wipe the result set. Patch
-		// the obvious mistakes before we hit the API.
-		const sanitized = sanitizeFilters(inferred.bc.filters);
+		// occasionally produces filters that wipe the result set. Run the
+		// sanitizer on both sets — strict drives high-profile labeling, so
+		// the same cleanups (BC.company-as-domain, headcount widening,
+		// location stripping, etc.) need to apply or labeling is wrong.
+		const sanitizedLax = sanitizeFilters(inferred.bc.lax);
+		const sanitizedStrict = sanitizeFilters(inferred.bc.strict);
 		// Hard cap the limit at 5 here too, regardless of what came back
 		// from the model — credit-spend defense.
 		const safeLimit = Math.min(inferred.bc.limit ?? 5, 5);
 
-		// --- BetterContact pass ---
+		// --- BetterContact pass (LAX filters → bigger pool) ---
 		try {
-			const submit = await submitLeadFinder(sanitized, safeLimit);
+			const submit = await submitLeadFinder(sanitizedLax, safeLimit);
 			if (!submit.request_id) {
 				result.bc.error = `BC returned no request_id (${submit.message ?? "unknown"})`;
 			} else {
@@ -107,12 +117,12 @@ export const runSearch = action({
 				err instanceof Error ? err.message : String(err);
 		}
 
-		// --- Apollo fallback ---
+		// --- Apollo fallback (LAX filters) ---
 		if (result.bc.leads_found < APOLLO_FALLBACK_THRESHOLD) {
 			result.apollo.ran = true;
 			try {
 				const apollo = await apolloPeopleSearch({
-					...inferred.apollo,
+					...inferred.apollo.lax,
 					per_page: 5,
 				});
 				const people = apollo.people ?? [];
@@ -124,11 +134,21 @@ export const runSearch = action({
 			}
 		}
 
-		// --- Score, classify high-profile, generate briefs ---
+		// --- Tag strictness, score, pick high-profile, generate briefs ---
+		// A lead matches strict only if it satisfies every populated slot
+		// in the strict BC filter set (industry, headcount, seniority,
+		// location, title keywords). Missing data on the lead = not a
+		// confident strict match → labeled lax.
 		for (const lead of result.leads) {
+			lead.match_strictness = matchesStrict(lead, sanitizedStrict)
+				? "strict"
+				: "lax";
 			lead.score = scoreLead(lead);
 		}
-		const hpIndices = pickHighProfile(result.leads);
+		const eligible = result.leads
+			.map((l, i) => (l.match_strictness === "strict" ? i : -1))
+			.filter((i) => i >= 0);
+		const hpIndices = pickHighProfile(result.leads, eligible);
 		for (const i of hpIndices) result.leads[i].high_profile = true;
 
 		if (hpIndices.length > 0) {
@@ -161,7 +181,7 @@ export const runSearch = action({
 // We strip the most common offenders here so the user gets matches
 // instead of silence.
 function sanitizeFilters(
-	filters: Record<string, unknown>,
+	filters: BcFilterSet,
 ): Record<string, unknown> {
 	// Shallow clone — the model's output, after compactFilters, is a plain
 	// object tree; we only mutate at known keys.
@@ -259,6 +279,79 @@ function sanitizeFilters(
 	}
 
 	return out;
+}
+
+// Evaluate a returned lead against the (sanitized) STRICT BC filter set.
+// A lead "matches strict" iff for every populated slot in the strict set,
+// the lead exposes data that satisfies the constraint. Missing data on
+// the lead means we can't be confident, so we return false — high-profile
+// flagging needs affirmative evidence, not benefit of the doubt.
+function matchesStrict(
+	lead: NormalizedLead,
+	strict: Record<string, unknown>,
+): boolean {
+	// Industry — substring match either direction so "Financial Services"
+	// satisfies a strict ["financial_services"] (BC stores both spellings
+	// at different layers).
+	const industry = strict.company_industry as
+		| { include?: string[] }
+		| undefined;
+	if (industry?.include?.length) {
+		if (!lead.company_industry) return false;
+		const li = lead.company_industry.toLowerCase().replace(/[_-]/g, " ");
+		const hit = industry.include.some((s) => {
+			const x = s.toLowerCase().replace(/[_-]/g, " ");
+			return li.includes(x) || x.includes(li);
+		});
+		if (!hit) return false;
+	}
+
+	// Headcount range
+	const hcMin = strict.company_headcount_min as number | undefined;
+	const hcMax = strict.company_headcount_max as number | undefined;
+	if (hcMin != null || hcMax != null) {
+		const raw = lead.company_headcount;
+		const hc =
+			typeof raw === "number"
+				? raw
+				: typeof raw === "string"
+					? parseInt(raw.replace(/[^0-9]/g, ""), 10)
+					: Number.NaN;
+		if (!Number.isFinite(hc)) return false;
+		if (hcMin != null && hc < hcMin) return false;
+		if (hcMax != null && hc > hcMax) return false;
+	}
+
+	// Seniority — exact (normalized) enum match
+	const sen = strict.lead_seniority as { include?: string[] } | undefined;
+	if (sen?.include?.length) {
+		if (!lead.seniority) return false;
+		const ls = lead.seniority.toLowerCase().trim().replace(/[\s-]+/g, "_");
+		const hit = sen.include.some(
+			(s) => s.toLowerCase().trim().replace(/[\s-]+/g, "_") === ls,
+		);
+		if (!hit) return false;
+	}
+
+	// Location — substring (lead may be "Berlin, Germany"; strict "Berlin")
+	const loc = strict.lead_location as { include?: string[] } | undefined;
+	if (loc?.include?.length) {
+		if (!lead.location) return false;
+		const ll = lead.location.toLowerCase();
+		const hit = loc.include.some((s) => ll.includes(s.toLowerCase()));
+		if (!hit) return false;
+	}
+
+	// Job title — substring keyword match
+	const jt = strict.lead_job_title as { include?: string[] } | undefined;
+	if (jt?.include?.length) {
+		if (!lead.job_title) return false;
+		const lt = lead.job_title.toLowerCase();
+		const hit = jt.include.some((s) => lt.includes(s.toLowerCase()));
+		if (!hit) return false;
+	}
+
+	return true;
 }
 
 function looksLikeDomain(s: string): boolean {

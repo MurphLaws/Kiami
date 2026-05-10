@@ -12,6 +12,10 @@ export type NormalizedLead = {
 	company_domain?: string;
 	company_headcount?: number | string;
 	high_profile?: boolean;
+	// Whether this lead also passes the strict reading of the brief
+	// (`strict`) or only the widened lax filters (`lax`). Set server-side
+	// after the lax search returns.
+	match_strictness?: "strict" | "lax";
 	score?: number;
 	brief?: {
 		why_they_fit: string;

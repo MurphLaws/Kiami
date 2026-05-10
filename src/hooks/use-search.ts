@@ -22,6 +22,7 @@ export type StoredLead = {
 	company_domain?: string;
 	company_headcount?: number | string;
 	high_profile?: boolean;
+	match_strictness?: "strict" | "lax";
 	score?: number;
 	brief?: {
 		why_they_fit: string;

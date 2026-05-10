@@ -47,14 +47,21 @@ export function scoreLead(lead: NormalizedLead): number {
 	return s;
 }
 
-// Top ~20%, capped at 5, minimum 1 if there are any leads.
-export function pickHighProfile(leads: NormalizedLead[]): number[] {
-	if (leads.length === 0) return [];
-	const ranked = leads
-		.map((l, idx) => ({ idx, score: scoreLead(l) }))
-		.sort((a, b) => b.score - a.score);
-	const target = Math.max(1, Math.min(5, Math.ceil(leads.length * 0.2)));
-	return ranked.slice(0, target).map((r) => r.idx);
+// Pick which leads get the "high profile" badge + an outreach brief.
+//
+// Caller passes the indices that are eligible (typically: leads that
+// matched the strict filter set). We score that pool and return the
+// top 5. If the pool is empty, no leads get flagged.
+export function pickHighProfile(
+	leads: NormalizedLead[],
+	eligible?: number[],
+): number[] {
+	const pool = eligible ?? leads.map((_, i) => i);
+	if (pool.length === 0) return [];
+	const ranked = pool
+		.slice()
+		.sort((a, b) => scoreLead(leads[b]) - scoreLead(leads[a]));
+	return ranked.slice(0, 5);
 }
 
 export type Brief = {
