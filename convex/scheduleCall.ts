@@ -1,6 +1,8 @@
 "use node";
 
-// Posts a contact to the Dapta scheduling webhook.
+// Posts a contact to the Dapta scheduling webhook. The webhook fires
+// the call immediately on receipt; we just hand it a tier (high/low)
+// so it can prioritize accordingly.
 //
 // All sensitive bits live in env vars on the deployment:
 //   - DAPTA_WEBHOOK_URL    → e.g. https://api.dapta.ai/api/<id>/kiami
@@ -8,11 +10,6 @@
 //   - KIAMI_TEST_PHONE     → phone we send for every test call (+57...)
 //   - KIAMI_BRAND_NAME     → the searcher's brand (e.g. "Innovaitors")
 //   - KIAMI_OWNER_EMAIL    → fallback owner email
-//
-// Cold-call timing research (US/EU B2B): mid-week (Wed/Thu) afternoons
-// (4–5 pm local) convert ~50% better than Mondays. The webhook itself
-// owns the actual scheduling; we just hand it a tier (high/low) so it
-// can prioritize accordingly.
 
 import { v } from "convex/values";
 

@@ -5,7 +5,6 @@ import {
 	Buildings,
 	CaretDown,
 	CaretRight,
-	Check,
 	Copy,
 	Export,
 	LinkSimple,
@@ -43,7 +42,7 @@ export const Route = createFileRoute("/results")({
 });
 
 type SourceFilter = "all" | "primary" | "network" | "high";
-type ScheduleState = "idle" | "loading" | "done" | "error";
+type ScheduleState = "idle" | "loading" | "error";
 
 function ResultsPage() {
 	const navigate = useNavigate();
@@ -81,6 +80,12 @@ function ResultsPage() {
 			if (!result) return;
 			const lead = result.leads[idx];
 			setScheduleByIdx((m) => ({ ...m, [idx]: "loading" }));
+			const clear = () =>
+				setScheduleByIdx((m) => {
+					const n = { ...m };
+					delete n[idx];
+					return n;
+				});
 			try {
 				const res = await scheduleCall({
 					full_name: lead.full_name,
@@ -95,7 +100,7 @@ function ResultsPage() {
 					toast.success(`Call scheduled for ${lead.full_name}`, {
 						description: message,
 					});
-					setScheduleByIdx((m) => ({ ...m, [idx]: "done" }));
+					clear();
 				} else {
 					toast.error(`Couldn't schedule ${lead.full_name}`, {
 						description: message,
@@ -107,15 +112,6 @@ function ResultsPage() {
 					description: err instanceof Error ? err.message : String(err),
 				});
 				setScheduleByIdx((m) => ({ ...m, [idx]: "error" }));
-			} finally {
-				// One-shot: fade back to idle after a beat so the user can re-fire.
-				window.setTimeout(() => {
-					setScheduleByIdx((m) => {
-						const n = { ...m };
-						delete n[idx];
-						return n;
-					});
-				}, 1800);
 			}
 		},
 		[flow, result, scheduleCall],
@@ -156,8 +152,13 @@ function ResultsPage() {
 				if (r.status === "fulfilled") {
 					const { i, r: payload } = r.value;
 					const isOk = (payload as { ok?: boolean })?.ok !== false;
-					n[i] = isOk ? "done" : "error";
-					isOk ? ok++ : fail++;
+					if (isOk) {
+						delete n[i];
+						ok++;
+					} else {
+						n[i] = "error";
+						fail++;
+					}
 				} else {
 					fail++;
 				}
@@ -167,18 +168,11 @@ function ResultsPage() {
 
 		if (fail === 0) {
 			toast.success(`Scheduled ${ok} call${ok === 1 ? "" : "s"}`);
-			setGlobalState("done");
+			setGlobalState("idle");
 		} else {
-			toast.error(
-				`Scheduled ${ok} of ${lowIdx.length}; ${fail} failed`,
-			);
+			toast.error(`Scheduled ${ok} of ${lowIdx.length}; ${fail} failed`);
 			setGlobalState("error");
 		}
-
-		window.setTimeout(() => {
-			setGlobalState("idle");
-			setScheduleByIdx({});
-		}, 2200);
 	}, [flow, result, scheduleCall]);
 
 	if (!result) return null;
@@ -592,18 +586,17 @@ function ScheduleButton({
 	onClick: () => void;
 }) {
 	const loading = state === "loading";
-	const done = state === "done";
 	const error = state === "error";
 	return (
 		<Button
 			size="sm"
-			variant={done ? "default" : "outline"}
+			variant="outline"
 			disabled={loading}
 			onClick={onClick}
 			className={cn(
 				"min-w-[130px] gap-1.5 transition-colors",
-				done &&
-					"!bg-[#22A06B] !text-white hover:!bg-[#1B8557] !border-[#22A06B]",
+				loading &&
+					"!bg-[#22A06B] !text-white hover:!bg-[#22A06B] !border-[#22A06B] disabled:opacity-100",
 				error && "!border-destructive !text-destructive",
 			)}
 		>
@@ -611,11 +604,6 @@ function ScheduleButton({
 				<>
 					<Spinner size={12} className="animate-spin" />
 					Scheduling…
-				</>
-			) : done ? (
-				<>
-					<Check size={12} weight="bold" />
-					Scheduled
 				</>
 			) : (
 				<>
@@ -637,19 +625,18 @@ function GlobalScheduleButton({
 	onClick: () => void;
 }) {
 	const loading = state === "loading";
-	const done = state === "done";
 	const error = state === "error";
 	if (lowCount === 0) return null;
 	return (
 		<Button
 			size="default"
-			variant={done ? "default" : "outline"}
+			variant="outline"
 			disabled={loading}
 			onClick={onClick}
 			className={cn(
 				"gap-1.5 transition-colors",
-				done &&
-					"!bg-[#22A06B] !text-white hover:!bg-[#1B8557] !border-[#22A06B]",
+				loading &&
+					"!bg-[#22A06B] !text-white hover:!bg-[#22A06B] !border-[#22A06B] disabled:opacity-100",
 				error && "!border-destructive !text-destructive",
 			)}
 		>
@@ -657,11 +644,6 @@ function GlobalScheduleButton({
 				<>
 					<Spinner size={14} className="animate-spin" />
 					Scheduling {lowCount}…
-				</>
-			) : done ? (
-				<>
-					<Check size={14} weight="bold" />
-					All scheduled
 				</>
 			) : (
 				<>
