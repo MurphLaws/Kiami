@@ -1,31 +1,24 @@
 // Centralized model handles for every LLM call in the codebase.
 // Swapping providers is a one-line change here.
 //
-// We use the @ai-sdk/openai provider directly (authed by OPENAI_API_KEY
-// in the Convex env) instead of the Vercel AI Gateway, because the
-// hackathon prod deployment ships an OpenAI key but no gateway key and
-// the gateway rejects raw OpenAI keys with `Unauthenticated`.
+// We route through @ai-sdk/google (Gemini), authed by
+// GOOGLE_GENERATIVE_AI_API_KEY in the Convex env. Previously we used
+// the OpenAI provider but the project's OpenAI key kept hitting its
+// quota mid-demo. Gemini has a generous free tier and the same
+// structured-outputs surface via the AI SDK.
 
-import { createOpenAI } from "@ai-sdk/openai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 
-const openai = createOpenAI({
-	// `apiKey` is read at call time from this env var; we pass it
-	// explicitly so the provider doesn't try to fall through to the
-	// gateway when the var is named non-standardly.
-	apiKey: process.env.OPENAI_API_KEY,
+const google = createGoogleGenerativeAI({
+	apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
 });
 
-// gpt-4.1 family — structured-outputs-capable, widely available, and
-// already paid for via the project's OpenAI API key. We previously used
-// "gpt-5.4-*" gateway aliases but the prod deployment doesn't have a
-// gateway key, so we'd lose the run on every search.
-//
-// Everything runs on gpt-4.1-mini. Nano is fast but visibly worse at
-// classification + contact synthesis quality, and the user explicitly
-// asked for a better model than nano.
+// gemini-2.5-flash — fast, cheap, structured-outputs-capable. We run
+// every call on the same tier because the user explicitly asked to
+// avoid nano-class quality.
 export const MODEL_IDS = {
-	filters: openai("gpt-4.1-mini"),
-	briefs: openai("gpt-4.1-mini"),
-	classify: openai("gpt-4.1-mini"),
-	contactInfo: openai("gpt-4.1-mini"),
+	filters: google("gemini-2.5-flash"),
+	briefs: google("gemini-2.5-flash"),
+	classify: google("gemini-2.5-flash"),
+	contactInfo: google("gemini-2.5-flash"),
 } as const;

@@ -8,13 +8,8 @@
 
 import { z } from "zod";
 
-import {
-	APOLLO_SENIORITY_ENUM,
-	DEPARTMENT_ENUM,
-	FUNCTION_ENUM,
-	INDUSTRY_ENUM,
-	SENIORITY_ENUM,
-} from "../enums";
+// Enum lists are still referenced by the prompt + the post-hoc
+// sanitizer; we just no longer use them as Zod enums (Gemini chokes).
 
 // ---------- Filters (recruiting + lead) ----------
 
@@ -23,18 +18,16 @@ const stringIncludeExclude = z.object({
 	exclude: z.array(z.string()),
 });
 
-function enumIncludeExclude<T extends readonly [string, ...string[]]>(
-	values: T,
-) {
-	return z.object({
-		include: z.array(z.enum(values)),
-		exclude: z.array(z.enum(values)),
-	});
-}
-
+// Gemini's structured-output runtime rejects schemas with very large
+// enum arrays ('schema produces a constraint that has too many states
+// for serving') — and INDUSTRY_ENUM + DEPARTMENT_ENUM each have ~200
+// entries. We relax every enum-typed include/exclude slot to plain
+// strings here and rely on the prompt to keep the model inside the
+// closed list. The post-hoc sanitizer in convex/search.ts drops any
+// stray values that slip through.
 const bcFilterSchema = z.object({
 	company: stringIncludeExclude,
-	company_industry: enumIncludeExclude(INDUSTRY_ENUM),
+	company_industry: stringIncludeExclude,
 	company_technology: stringIncludeExclude,
 	company_headcount_min: z.number().int().nullable(),
 	company_headcount_max: z.number().int().nullable(),
@@ -44,8 +37,8 @@ const bcFilterSchema = z.object({
 	// title literally contains the name (returning Iris B., not Nicolas).
 	lead_fullname: stringIncludeExclude,
 	lead_linkedin_url: stringIncludeExclude,
-	lead_department: enumIncludeExclude(DEPARTMENT_ENUM),
-	lead_function: enumIncludeExclude(FUNCTION_ENUM),
+	lead_department: stringIncludeExclude,
+	lead_function: stringIncludeExclude,
 	lead_skills: stringIncludeExclude,
 	lead_job_title: z.object({
 		include: z.array(z.string()),
@@ -53,12 +46,12 @@ const bcFilterSchema = z.object({
 		exact_match: z.boolean().nullable(),
 	}),
 	lead_location: stringIncludeExclude,
-	lead_seniority: enumIncludeExclude(SENIORITY_ENUM),
+	lead_seniority: stringIncludeExclude,
 });
 
 const apolloFilterSchema = z.object({
 	person_titles: z.array(z.string()),
-	person_seniorities: z.array(z.enum(APOLLO_SENIORITY_ENUM)),
+	person_seniorities: z.array(z.string()),
 	person_locations: z.array(z.string()),
 	organization_locations: z.array(z.string()),
 	organization_num_employees_ranges: z.array(z.string()),

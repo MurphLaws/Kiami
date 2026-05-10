@@ -40,6 +40,12 @@ import {
 	submitLeadFinder,
 	type BcLead,
 } from "./wrappers/bc";
+import {
+	DEPARTMENT_ENUM,
+	FUNCTION_ENUM,
+	INDUSTRY_ENUM,
+	SENIORITY_ENUM,
+} from "./wrappers/enums";
 
 // Volume targets — bigger pool by default so the user has something to
 // filter against. BC's API ceiling is 200; we ask for 50 by default and
@@ -335,6 +341,39 @@ function sanitizeFilters(
 	// Shallow clone — the model's output, after compactFilters, is a plain
 	// object tree; we only mutate at known keys.
 	const out: Record<string, unknown> = { ...filters };
+
+	// 0. Enum-typed slots: drop any include/exclude entry that isn't in
+	//    the closed list BC accepts. We had Zod enforcing this before
+	//    we relaxed the schema for Gemini compatibility; now the
+	//    sanitizer carries the load.
+	const ENUM_BY_SLOT: Record<string, Set<string>> = {
+		company_industry: new Set(INDUSTRY_ENUM),
+		lead_department: new Set(DEPARTMENT_ENUM),
+		lead_function: new Set(FUNCTION_ENUM),
+		lead_seniority: new Set(SENIORITY_ENUM),
+	};
+	const slug = (s: string) =>
+		s.toLowerCase().trim().replace(/[\s-]+/g, "_");
+	for (const [slot, allowed] of Object.entries(ENUM_BY_SLOT)) {
+		const v = out[slot];
+		if (!v || typeof v !== "object") continue;
+		const inc = (v as { include?: string[] }).include ?? [];
+		const exc = (v as { exclude?: string[] }).exclude ?? [];
+		const cleanedInc = inc
+			.map(slug)
+			.filter((s) => allowed.has(s));
+		const cleanedExc = exc
+			.map(slug)
+			.filter((s) => allowed.has(s));
+		if (cleanedInc.length === 0 && cleanedExc.length === 0) {
+			delete out[slot];
+		} else {
+			out[slot] = {
+				...(cleanedInc.length ? { include: cleanedInc } : {}),
+				...(cleanedExc.length ? { exclude: cleanedExc } : {}),
+			};
+		}
+	}
 
 	// 1. BC.company is a DOMAIN filter. If the model put industry words
 	//    like "fintech" or "HR-Tech" in there, drop the bad entries.

@@ -20,6 +20,7 @@
     "lint": "tsc && eslint .  --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.71",
     "@ai-sdk/openai": "^3.0.63",
     "@apideck/unify": "^0.41.5",
     "@base-ui/react": "^1.4.1",
