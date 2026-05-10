@@ -699,6 +699,7 @@ function EditorialRow({
 	onToggleTag: (tag: string) => void;
 }) {
 	const isHigh = !!lead.high_profile;
+	const isSynth = lead.source === "synthesized";
 	const initials = (lead.full_name ?? "")
 		.split(/\s+/)
 		.filter(Boolean)
@@ -711,7 +712,19 @@ function EditorialRow({
 	const hiddenTagCount = tags.length - visibleTags.length;
 
 	return (
-		<div className="border-b last:border-b-0">
+		<div
+			className={cn(
+				"relative border-b last:border-b-0",
+				isSynth && "bg-[var(--color-brand-tint)]/30",
+			)}
+		>
+			{isSynth && (
+				<span
+					aria-hidden
+					className="pointer-events-none absolute inset-y-0 left-0 w-[3px]"
+					style={{ background: "var(--color-brand)" }}
+				/>
+			)}
 			<div className="grid grid-cols-[36px_minmax(0,1.6fr)_minmax(0,1fr)_120px_120px_150px_28px] items-center gap-4 px-4 py-3.5 transition-colors hover:bg-muted/40">
 				{/* Avatar */}
 				<button
@@ -720,11 +733,11 @@ function EditorialRow({
 					aria-label={expanded ? "Collapse" : "Expand"}
 					className="grid h-8 w-8 place-items-center rounded-full text-[10px] font-semibold transition-colors"
 					style={{
-						background: "var(--color-brand-tint)",
-						color: "var(--color-brand)",
+						background: isSynth ? "var(--color-brand)" : "var(--color-brand-tint)",
+						color: isSynth ? "#FFFFFF" : "var(--color-brand)",
 					}}
 				>
-					{initials || "·"}
+					{isSynth ? <Sparkle size={12} weight="fill" /> : initials || "·"}
 				</button>
 
 				{/* Name + title + tag chips */}
@@ -738,7 +751,19 @@ function EditorialRow({
 							<span className="truncate font-medium text-foreground">
 								{lead.full_name}
 							</span>
-							{isHigh && (
+							{isSynth && (
+								<span
+									className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 font-mono-display text-[10px] font-semibold tracking-[0.12em] uppercase"
+									style={{
+										background: "var(--color-brand)",
+										color: "#FFFFFF",
+									}}
+								>
+									<Sparkle size={9} weight="fill" />
+									Suggested by AI
+								</span>
+							)}
+							{isHigh && !isSynth && (
 								<span
 									className="inline-flex items-center gap-1 rounded px-1.5 py-px text-[10px] font-medium"
 									style={{
