@@ -563,7 +563,7 @@ function MascotWatermark() {
 			className="pointer-events-none absolute -right-32 -bottom-40 select-none"
 			style={{ color: "var(--color-brand)", opacity: 0.05 }}
 		>
-			<KiamiMark size={620} />
+			<KiamiMark size={620} plate={false} />
 		</div>
 	);
 }

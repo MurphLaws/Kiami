@@ -50,7 +50,7 @@ export const Route = createRootRouteWithContext<{
     ],
     links: [
       { rel: 'stylesheet', href: appCssUrl },
-      { rel: 'icon', type: 'image/svg+xml', href: '/kiami.svg' },
+      { rel: 'icon', type: 'image/png', href: '/kiami-mascot.png' },
     ],
   }),
   shellComponent: RootComponent,
