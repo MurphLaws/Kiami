@@ -16,6 +16,13 @@ export type NormalizedLead = {
 	// (`strict`) or only the widened lax filters (`lax`). Set server-side
 	// after the lax search returns.
 	match_strictness?: "strict" | "lax";
+	// Number of populated strict-filter slots this lead misses. 0 = exact
+	// match, 1–2 = "affine" (still high-profile material), 3+ = lax-only.
+	strict_misses?: number;
+	// Hashtag-style chips derived from the lead's data + the inferred
+	// filters (e.g. ["#senior", "#berlin", "#go", "#fintech"]). Used by
+	// the contacts UI for accumulable tag filtering.
+	tags?: string[];
 	score?: number;
 	brief?: {
 		why_they_fit: string;

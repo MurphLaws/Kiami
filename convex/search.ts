@@ -41,7 +41,15 @@ import {
 	type BcLead,
 } from "./wrappers/bc";
 
-const APOLLO_FALLBACK_THRESHOLD = 5;
+// Volume targets — bigger pool by default so the user has something to
+// filter against. The hard ceiling on BC is still credit-defended in
+// the LLM prompt + safeLimit clamp below.
+const BC_TARGET = 12;
+const APOLLO_FALLBACK_THRESHOLD = 8;
+// Up to this many strict-filter slots can fail before a lead is demoted
+// from high-profile to low-profile. Set to 2 so high_profile stays
+// "more affine than low" without requiring an exact match.
+const HIGH_PROFILE_MAX_MISSES = 2;
 
 export type { NormalizedLead };
 
@@ -91,9 +99,10 @@ export const runSearch = action({
 		// location stripping, etc.) need to apply or labeling is wrong.
 		const sanitizedLax = sanitizeFilters(inferred.bc.lax);
 		const sanitizedStrict = sanitizeFilters(inferred.bc.strict);
-		// Hard cap the limit at 5 here too, regardless of what came back
-		// from the model — credit-spend defense.
-		const safeLimit = Math.min(inferred.bc.limit ?? 5, 5);
+		// Hard cap at BC_TARGET. The LLM is prompted to ask for 5 to be
+		// credit-conservative; we override here because the user wants
+		// volume and tag-based filtering on the client.
+		const safeLimit = Math.max(inferred.bc.limit ?? BC_TARGET, BC_TARGET);
 
 		// --- BetterContact pass (LAX filters → bigger pool) ---
 		try {
@@ -121,12 +130,15 @@ export const runSearch = action({
 		}
 
 		// --- Apollo fallback (LAX filters) ---
+		// Run Apollo whenever BC came back below threshold. Because the
+		// user wants volume, the threshold is now generous: even a
+		// half-filled BC pull triggers the wider sweep.
 		if (result.bc.leads_found < APOLLO_FALLBACK_THRESHOLD) {
 			result.apollo.ran = true;
 			try {
 				const apollo = await apolloPeopleSearch({
 					...inferred.apollo.lax,
-					per_page: 5,
+					per_page: 10,
 				});
 				const people = apollo.people ?? [];
 				result.apollo.leads_found = people.length;
@@ -137,19 +149,24 @@ export const runSearch = action({
 			}
 		}
 
-		// --- Tag strictness, score, pick high-profile, generate briefs ---
-		// A lead matches strict only if it satisfies every populated slot
-		// in the strict BC filter set (industry, headcount, seniority,
-		// location, title keywords). Missing data on the lead = not a
-		// confident strict match → labeled lax.
+		// --- Tag strictness, derive hashtags, score, pick high-profile ---
+		// `strict_misses` counts how many populated strict slots a lead
+		// misses. 0 = exact match, ≤2 = "affine" (still high-profile),
+		// 3+ = lax-only.
 		for (const lead of result.leads) {
-			lead.match_strictness = matchesStrict(lead, sanitizedStrict)
-				? "strict"
-				: "lax";
+			const misses = strictMissCount(lead, sanitizedStrict);
+			lead.strict_misses = misses;
+			lead.match_strictness = misses === 0 ? "strict" : "lax";
+			lead.tags = computeTags(lead, sanitizedStrict, sanitizedLax);
 			lead.score = scoreLead(lead);
 		}
+		// High-profile pool: anyone with at most HIGH_PROFILE_MAX_MISSES
+		// strict-slot misses. The roadmap brief said "more affine than low,
+		// not necessarily exact match" — so we don't require zero misses.
 		const eligible = result.leads
-			.map((l, i) => (l.match_strictness === "strict" ? i : -1))
+			.map((l, i) =>
+				(l.strict_misses ?? Infinity) <= HIGH_PROFILE_MAX_MISSES ? i : -1,
+			)
 			.filter((i) => i >= 0);
 		const hpIndices = pickHighProfile(result.leads, eligible);
 		for (const i of hpIndices) result.leads[i].high_profile = true;
@@ -335,29 +352,35 @@ function sanitizeFilters(
 	return out;
 }
 
-// Evaluate a returned lead against the (sanitized) STRICT BC filter set.
-// A lead "matches strict" iff for every populated slot in the strict set,
-// the lead exposes data that satisfies the constraint. Missing data on
-// the lead means we can't be confident, so we return false — high-profile
-// flagging needs affirmative evidence, not benefit of the doubt.
-function matchesStrict(
+// Score a returned lead against the (sanitized) STRICT BC filter set.
+// Returns the number of populated strict slots the lead FAILS. The
+// caller then decides what counts as high-profile: 0 misses = exact
+// match, ≤2 misses = "affine" (still high-profile), 3+ = lax-only.
+//
+// Missing data on the lead counts as a miss — we want affirmative
+// evidence to promote, not benefit of the doubt.
+function strictMissCount(
 	lead: NormalizedLead,
 	strict: Record<string, unknown>,
-): boolean {
+): number {
+	let misses = 0;
+
 	// Industry — substring match either direction so "Financial Services"
-	// satisfies a strict ["financial_services"] (BC stores both spellings
-	// at different layers).
+	// satisfies a strict ["financial_services"].
 	const industry = strict.company_industry as
 		| { include?: string[] }
 		| undefined;
 	if (industry?.include?.length) {
-		if (!lead.company_industry) return false;
-		const li = lead.company_industry.toLowerCase().replace(/[_-]/g, " ");
-		const hit = industry.include.some((s) => {
-			const x = s.toLowerCase().replace(/[_-]/g, " ");
-			return li.includes(x) || x.includes(li);
-		});
-		if (!hit) return false;
+		const li = (lead.company_industry ?? "")
+			.toLowerCase()
+			.replace(/[_-]/g, " ");
+		const hit =
+			!!li &&
+			industry.include.some((s) => {
+				const x = s.toLowerCase().replace(/[_-]/g, " ");
+				return li.includes(x) || x.includes(li);
+			});
+		if (!hit) misses++;
 	}
 
 	// Headcount range
@@ -371,41 +394,183 @@ function matchesStrict(
 				: typeof raw === "string"
 					? parseInt(raw.replace(/[^0-9]/g, ""), 10)
 					: Number.NaN;
-		if (!Number.isFinite(hc)) return false;
-		if (hcMin != null && hc < hcMin) return false;
-		if (hcMax != null && hc > hcMax) return false;
+		const inRange =
+			Number.isFinite(hc) &&
+			(hcMin == null || hc >= hcMin) &&
+			(hcMax == null || hc <= hcMax);
+		if (!inRange) misses++;
 	}
 
 	// Seniority — exact (normalized) enum match
 	const sen = strict.lead_seniority as { include?: string[] } | undefined;
 	if (sen?.include?.length) {
-		if (!lead.seniority) return false;
-		const ls = lead.seniority.toLowerCase().trim().replace(/[\s-]+/g, "_");
-		const hit = sen.include.some(
-			(s) => s.toLowerCase().trim().replace(/[\s-]+/g, "_") === ls,
-		);
-		if (!hit) return false;
+		const ls = (lead.seniority ?? "")
+			.toLowerCase()
+			.trim()
+			.replace(/[\s-]+/g, "_");
+		const hit =
+			!!ls &&
+			sen.include.some(
+				(s) => s.toLowerCase().trim().replace(/[\s-]+/g, "_") === ls,
+			);
+		if (!hit) misses++;
 	}
 
-	// Location — substring (lead may be "Berlin, Germany"; strict "Berlin")
+	// Location — substring
 	const loc = strict.lead_location as { include?: string[] } | undefined;
 	if (loc?.include?.length) {
-		if (!lead.location) return false;
-		const ll = lead.location.toLowerCase();
-		const hit = loc.include.some((s) => ll.includes(s.toLowerCase()));
-		if (!hit) return false;
+		const ll = (lead.location ?? "").toLowerCase();
+		const hit =
+			!!ll && loc.include.some((s) => ll.includes(s.toLowerCase()));
+		if (!hit) misses++;
 	}
 
 	// Job title — substring keyword match
 	const jt = strict.lead_job_title as { include?: string[] } | undefined;
 	if (jt?.include?.length) {
-		if (!lead.job_title) return false;
-		const lt = lead.job_title.toLowerCase();
-		const hit = jt.include.some((s) => lt.includes(s.toLowerCase()));
-		if (!hit) return false;
+		const lt = (lead.job_title ?? "").toLowerCase();
+		const hit = !!lt && jt.include.some((s) => lt.includes(s.toLowerCase()));
+		if (!hit) misses++;
 	}
 
-	return true;
+	return misses;
+}
+
+// Hashtag-style chips per lead. Drawn from:
+//   • the strict + lax skill / industry / location / seniority filters
+//     (so the user always sees the dimensions they asked for)
+//   • a small library of well-known tech keywords matched against the
+//     lead's job_title + raw payload (rust/go/python/react/aws/...)
+//   • the lead's own seniority + location + industry
+//
+// Each tag is lowercased, slug-safe, and de-duped. The `#` prefix is
+// added by the UI, not stored here.
+function computeTags(
+	lead: NormalizedLead,
+	strict: Record<string, unknown>,
+	lax: Record<string, unknown>,
+): string[] {
+	const out = new Set<string>();
+	const norm = (s: string) =>
+		s
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, "")
+			.trim();
+
+	// Pull from filter sets — ALL include arrays, both strict + lax.
+	const filterSets = [strict, lax];
+	const filterFields = [
+		"company_industry",
+		"lead_skills",
+		"lead_function",
+		"lead_department",
+		"lead_seniority",
+		"lead_location",
+	];
+	for (const set of filterSets) {
+		for (const field of filterFields) {
+			const slot = set[field] as { include?: string[] } | undefined;
+			if (slot?.include) {
+				for (const v of slot.include) {
+					const tag = norm(v);
+					if (tag.length >= 2 && tag.length <= 20) out.add(tag);
+				}
+			}
+		}
+		// Job title keywords are stored under lead_job_title.include
+		const jt = set.lead_job_title as { include?: string[] } | undefined;
+		if (jt?.include) {
+			for (const v of jt.include) {
+				// Split phrases: "Senior Backend Engineer" → "senior", "backend"
+				for (const word of v.toLowerCase().split(/\s+/)) {
+					const tag = norm(word);
+					if (tag.length >= 3 && tag.length <= 16) out.add(tag);
+				}
+			}
+		}
+	}
+
+	// Pull from the lead's own data — title, industry, seniority, location.
+	const TECH_KEYWORDS = [
+		"rust",
+		"go",
+		"golang",
+		"python",
+		"java",
+		"kotlin",
+		"swift",
+		"typescript",
+		"javascript",
+		"react",
+		"vue",
+		"node",
+		"ruby",
+		"rails",
+		"elixir",
+		"scala",
+		"clojure",
+		"php",
+		"laravel",
+		"django",
+		"flask",
+		"fastapi",
+		"aws",
+		"gcp",
+		"azure",
+		"kubernetes",
+		"docker",
+		"terraform",
+		"postgres",
+		"redis",
+		"kafka",
+		"snowflake",
+		"airflow",
+		"dbt",
+		"spark",
+		"ml",
+		"nlp",
+		"llm",
+		"genai",
+		"fintech",
+		"healthtech",
+		"edtech",
+		"saas",
+		"devtools",
+		"crypto",
+		"web3",
+		"climate",
+		"hrtech",
+		"insurtech",
+		"proptech",
+		"adtech",
+	];
+	const haystack = [
+		lead.job_title ?? "",
+		lead.company_industry ?? "",
+		lead.company_name ?? "",
+	]
+		.join(" ")
+		.toLowerCase();
+	for (const kw of TECH_KEYWORDS) {
+		if (new RegExp(`\\b${kw}\\b`).test(haystack)) out.add(kw);
+	}
+	// Seniority + location come straight from the lead.
+	if (lead.seniority) {
+		const tag = norm(lead.seniority);
+		if (tag.length >= 2 && tag.length <= 18) out.add(tag);
+	}
+	if (lead.location) {
+		// Use just the first comma-separated component (city or country).
+		const first = lead.location.split(",")[0];
+		const tag = norm(first);
+		if (tag.length >= 2 && tag.length <= 18) out.add(tag);
+	}
+
+	// Cap at 8 tags so the row doesn't drown in chips. Sort by length
+	// (shorter first → "go" before "kubernetes") so the UI looks tidy.
+	return Array.from(out)
+		.sort((a, b) => a.length - b.length || a.localeCompare(b))
+		.slice(0, 8);
 }
 
 function looksLikeDomain(s: string): boolean {

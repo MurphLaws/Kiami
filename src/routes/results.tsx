@@ -78,7 +78,16 @@ function ResultsPage() {
 
 	const [result, setResult] = useState<StoredSearchResult | null>(null);
 	const [filter, setFilter] = useState<SourceFilter>("all");
+	const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+	const toggleTag = useCallback((tag: string) => {
+		setActiveTags((prev) => {
+			const n = new Set(prev);
+			n.has(tag) ? n.delete(tag) : n.add(tag);
+			return n;
+		});
+	}, []);
 	const [scheduleByIdx, setScheduleByIdx] = useState<
 		Record<number, ScheduleState>
 	>({});
@@ -210,12 +219,28 @@ function ResultsPage() {
 		.map((_, i) => i)
 		.filter((i) => {
 			const l = result.leads[i];
-			if (filter === "all") return true;
-			if (filter === "high") return !!l.high_profile;
-			if (filter === "primary") return l.source === "bettercontact";
-			if (filter === "network") return l.source === "apollo";
+			if (filter === "high" && !l.high_profile) return false;
+			if (filter === "primary" && l.source !== "bettercontact") return false;
+			if (filter === "network" && l.source !== "apollo") return false;
+			// Tag filtering is AND — every active tag must be present.
+			if (activeTags.size > 0) {
+				const tags = new Set(l.tags ?? []);
+				for (const t of activeTags) if (!tags.has(t)) return false;
+			}
 			return true;
 		});
+
+	// Aggregate the universe of tags surfaced across all returned leads,
+	// sorted by frequency so the most common ones appear first.
+	const tagCounts = new Map<string, number>();
+	for (const l of result.leads) {
+		for (const t of l.tags ?? []) {
+			tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+		}
+	}
+	const allTags = Array.from(tagCounts.entries())
+		.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+		.map(([t]) => t);
 
 	const primaryCount = result.leads.filter(
 		(l) => l.source === "bettercontact",
@@ -390,6 +415,53 @@ function ResultsPage() {
 					})}
 				</div>
 
+				{allTags.length > 0 && (
+					<div
+						className="kiami-fade-up mb-5 flex flex-wrap items-center gap-1.5 border-t pt-4"
+						style={{ animationDelay: "260ms" }}
+					>
+						<span className="eyebrow mr-2">Tags</span>
+						{allTags.map((t) => {
+							const active = activeTags.has(t);
+							const count = tagCounts.get(t) ?? 0;
+							return (
+								<button
+									type="button"
+									key={t}
+									onClick={() => toggleTag(t)}
+									className={cn(
+										"inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] transition-colors",
+										active
+											? "border-[var(--color-brand)] bg-[var(--color-brand)] text-white"
+											: "border-[var(--color-border)] bg-white text-muted-foreground hover:border-[var(--color-brand)]/40 hover:text-foreground",
+									)}
+								>
+									<span className="font-medium">#{t}</span>
+									<span
+										className={cn(
+											"font-mono-display tnum text-[10px]",
+											active
+												? "text-white/80"
+												: "text-muted-foreground/70",
+										)}
+									>
+										{count}
+									</span>
+								</button>
+							);
+						})}
+						{activeTags.size > 0 && (
+							<button
+								type="button"
+								onClick={() => setActiveTags(new Set())}
+								className="ml-2 font-mono-display text-[10px] tracking-[0.18em] text-muted-foreground uppercase transition-colors hover:text-foreground"
+							>
+								Clear ({activeTags.size})
+							</button>
+						)}
+					</div>
+				)}
+
 				<div className="border-t">
 					{visibleIdx.length === 0 ? (
 						<div className="px-8 py-14 text-center">
@@ -430,8 +502,10 @@ function ResultsPage() {
 											lead={l}
 											expanded={isOpen}
 											scheduleState={sched}
+											activeTags={activeTags}
 											onToggle={() => toggleExpand(idx)}
 											onSchedule={() => scheduleOne(idx)}
+											onToggleTag={toggleTag}
 										/>
 									</div>
 								);
@@ -576,14 +650,18 @@ function EditorialRow({
 	lead,
 	expanded,
 	scheduleState,
+	activeTags,
 	onToggle,
 	onSchedule,
+	onToggleTag,
 }: {
 	lead: StoredLead;
 	expanded: boolean;
 	scheduleState: ScheduleState;
+	activeTags: Set<string>;
 	onToggle: () => void;
 	onSchedule: () => void;
+	onToggleTag: (tag: string) => void;
 }) {
 	const isHigh = !!lead.high_profile;
 	const initials = (lead.full_name ?? "")
@@ -593,9 +671,13 @@ function EditorialRow({
 		.map((s) => s[0]?.toUpperCase() ?? "")
 		.join("");
 	const tag = leadRowTag(lead);
+	const tags = lead.tags ?? [];
+	const visibleTags = tags.slice(0, 5);
+	const hiddenTagCount = tags.length - visibleTags.length;
+
 	return (
 		<div className="border-b last:border-b-0">
-			<div className="grid grid-cols-[36px_minmax(0,1.4fr)_minmax(0,1fr)_140px_150px_28px] items-center gap-4 px-4 py-3.5 transition-colors hover:bg-muted/40">
+			<div className="grid grid-cols-[36px_minmax(0,1.6fr)_minmax(0,1fr)_120px_120px_150px_28px] items-center gap-4 px-4 py-3.5 transition-colors hover:bg-muted/40">
 				{/* Avatar */}
 				<button
 					type="button"
@@ -610,35 +692,67 @@ function EditorialRow({
 					{initials || "·"}
 				</button>
 
-				{/* Name + title */}
-				<button
-					type="button"
-					onClick={onToggle}
-					className="min-w-0 text-left"
-				>
-					<div className="flex items-center gap-2">
-						<span className="truncate font-medium text-foreground">
-							{lead.full_name}
-						</span>
-						{isHigh && (
-							<span
-								className="inline-flex items-center gap-1 rounded px-1.5 py-px text-[10px] font-medium"
-								style={{
-									background: "var(--color-brand-tint)",
-									color: "var(--color-brand)",
-								}}
-							>
-								<Star size={9} weight="fill" />
-								High
+				{/* Name + title + tag chips */}
+				<div className="min-w-0">
+					<button
+						type="button"
+						onClick={onToggle}
+						className="block w-full text-left"
+					>
+						<div className="flex items-center gap-2">
+							<span className="truncate font-medium text-foreground">
+								{lead.full_name}
 							</span>
-						)}
-					</div>
-					<div className="mt-0.5 truncate text-[12px] text-muted-foreground">
-						{[lead.job_title, lead.seniority]
-							.filter(Boolean)
-							.join(" · ") || "—"}
-					</div>
-				</button>
+							{isHigh && (
+								<span
+									className="inline-flex items-center gap-1 rounded px-1.5 py-px text-[10px] font-medium"
+									style={{
+										background: "var(--color-brand-tint)",
+										color: "var(--color-brand)",
+									}}
+								>
+									<Star size={9} weight="fill" />
+									High
+								</span>
+							)}
+						</div>
+						<div className="mt-0.5 truncate text-[12px] text-muted-foreground">
+							{[lead.job_title, lead.seniority]
+								.filter(Boolean)
+								.join(" · ") || "—"}
+						</div>
+					</button>
+					{visibleTags.length > 0 && (
+						<div className="mt-1.5 flex flex-wrap items-center gap-1">
+							{visibleTags.map((t) => {
+								const active = activeTags.has(t);
+								return (
+									<button
+										key={t}
+										type="button"
+										onClick={(e) => {
+											e.stopPropagation();
+											onToggleTag(t);
+										}}
+										className={cn(
+											"rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors",
+											active
+												? "bg-[var(--color-brand)] text-white"
+												: "bg-[var(--color-brand-tint)]/80 text-[var(--color-brand)] hover:bg-[var(--color-brand-tint)]",
+										)}
+									>
+										#{t}
+									</button>
+								);
+							})}
+							{hiddenTagCount > 0 && (
+								<span className="font-mono-display text-[10px] text-muted-foreground">
+									+{hiddenTagCount}
+								</span>
+							)}
+						</div>
+					)}
+				</div>
 
 				{/* Company */}
 				<button
@@ -656,6 +770,27 @@ function EditorialRow({
 
 				{/* Classification dot + tag */}
 				<div>{tag && <RowTag tag={tag} />}</div>
+
+				{/* LinkedIn — prominent button per the user's ask */}
+				<div>
+					{lead.linkedin_url ? (
+						<a
+							href={lead.linkedin_url}
+							target="_blank"
+							rel="noreferrer"
+							onClick={(e) => e.stopPropagation()}
+							className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-[12px] font-medium text-white transition-colors"
+							style={{ background: "#0A66C2" }}
+						>
+							<LinkedinLogo size={12} weight="fill" />
+							LinkedIn
+						</a>
+					) : (
+						<span className="font-mono-display text-[10px] tracking-[0.18em] text-muted-foreground/70 uppercase">
+							no profile
+						</span>
+					)}
+				</div>
 
 				{/* Schedule */}
 				<div>
