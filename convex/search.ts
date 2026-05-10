@@ -1,23 +1,36 @@
 "use node";
 
 // Run a lead search:
-//   1. Use OpenAI to translate the brief into TWO filter sets per source:
+//   1. Use an LLM to translate the brief into TWO filter sets per source:
 //      a `strict` reading (the precise interpretation) and a `lax` reading
 //      (deliberately widened — ±1 seniority band, adjacent industries,
-//      2-3x headcount, softer locations, fewer must-have skills).
+//      2-3x headcount, softer locations, fewer must-have skills). The
+//      flow picks recruiting- vs. sales-tuned filter generation.
 //   2. Submit BC + Apollo with the LAX set so we get a bigger pool.
 //   3. Strip BC PII (email/phone) at the BC client. Apollo people search
 //      doesn't include email/phone on the free tier — exactly what we want.
 //   4. For each returned lead, evaluate whether it ALSO satisfies the
 //      strict set. Strict matches are tagged "strict" + flagged
 //      high_profile (capped at 5); lax-only matches stay low_profile.
-//   5. Score the strict matches and batch-generate one outreach brief
-//      per high-profile lead via OpenAI.
+//   5. In parallel: classify every lead against the original brief
+//      (cheap nano model, batched), and generate outreach briefs for
+//      the top high-profile leads.
 
 import { v } from "convex/values";
 
 import { action } from "./_generated/server";
 import type { NormalizedLead } from "./searchTypes";
+import {
+	classifyCandidates,
+	classifyLeads,
+	generateBriefs,
+	generateLeadFilters,
+	generateRecruitingFilters,
+	pickHighProfile,
+	scoreLead,
+	type BcFilterSet,
+	type InferredFilters,
+} from "./wrappers/ai";
 import {
 	apolloPeopleSearch,
 	type ApolloPerson,
@@ -27,16 +40,6 @@ import {
 	submitLeadFinder,
 	type BcLead,
 } from "./wrappers/bc";
-import {
-	generateBriefs,
-	pickHighProfile,
-	scoreLead,
-} from "./wrappers/briefs";
-import {
-	inferFilters,
-	type BcFilterSet,
-	type InferredFilters,
-} from "./wrappers/openai";
 
 const APOLLO_FALLBACK_THRESHOLD = 5;
 
@@ -68,10 +71,10 @@ export const runSearch = action({
 	},
 	returns: v.any(),
 	handler: async (_ctx, args): Promise<SearchResult> => {
-		const inferred = await inferFilters({
-			flow: args.flow,
-			text: args.brief,
-		});
+		const inferred =
+			args.flow === "recruiting"
+				? await generateRecruitingFilters(args.brief)
+				: await generateLeadFilters(args.brief);
 
 		const result: SearchResult = {
 			rationale: inferred.rationale,
@@ -151,25 +154,76 @@ export const runSearch = action({
 		const hpIndices = pickHighProfile(result.leads, eligible);
 		for (const i of hpIndices) result.leads[i].high_profile = true;
 
-		if (hpIndices.length > 0) {
-			try {
-				const subset = hpIndices.map((i) => result.leads[i]);
-				const briefs = await generateBriefs({
-					flow: args.flow,
-					originalBrief: args.brief,
-					leads: subset,
-				});
-				hpIndices.forEach((leadIdx, briefIdx) => {
-					const b = briefs[briefIdx];
-					if (b && (b.why_they_fit || b.suggested_opener)) {
-						result.leads[leadIdx].brief = b;
-					}
-				});
-			} catch (err) {
-				// Briefs are a best-effort enhancement; never let them fail
-				// the whole search.
-				console.error("brief generation failed", err);
-			}
+		// Classify ALL leads and generate briefs for the top high-profile
+		// subset in parallel — neither depends on the other.
+		const classifyAll =
+			args.flow === "recruiting"
+				? classifyCandidates({
+						originalBrief: args.brief,
+						leads: result.leads,
+					}).then(
+						(cs) =>
+							cs.map((c) => ({ kind: "candidate" as const, ...c })),
+					)
+				: classifyLeads({
+						originalBrief: args.brief,
+						leads: result.leads,
+					}).then(
+						(cs) => cs.map((c) => ({ kind: "lead" as const, ...c })),
+					);
+
+		const briefSubset = hpIndices.map((i) => result.leads[i]);
+		const briefsPromise =
+			briefSubset.length > 0
+				? generateBriefs({
+						flow: args.flow,
+						originalBrief: args.brief,
+						leads: briefSubset,
+					})
+				: Promise.resolve([]);
+
+		const [classifyRes, briefsRes] = await Promise.allSettled([
+			classifyAll,
+			briefsPromise,
+		]);
+
+		if (classifyRes.status === "fulfilled") {
+			classifyRes.value.forEach((c, idx) => {
+				const lead = result.leads[idx];
+				if (!lead) return;
+				if (c.kind === "candidate") {
+					lead.classification = {
+						kind: "candidate",
+						role_fit: c.role_fit,
+						seniority_match: c.seniority_match,
+						recommendation: c.recommendation,
+						reasoning: c.reasoning,
+					};
+				} else {
+					lead.classification = {
+						kind: "lead",
+						tier: c.tier,
+						icp_fit: c.icp_fit,
+						confidence: c.confidence,
+						reasoning: c.reasoning,
+					};
+				}
+			});
+		} else {
+			console.error("classification failed", classifyRes.reason);
+		}
+
+		if (briefsRes.status === "fulfilled") {
+			hpIndices.forEach((leadIdx, briefIdx) => {
+				const b = briefsRes.value[briefIdx];
+				if (b && (b.why_they_fit || b.suggested_opener)) {
+					result.leads[leadIdx].brief = b;
+				}
+			});
+		} else {
+			// Briefs are a best-effort enhancement; never let them fail
+			// the whole search.
+			console.error("brief generation failed", briefsRes.reason);
 		}
 
 		return result;
