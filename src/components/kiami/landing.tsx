@@ -9,12 +9,14 @@ import {
 	Target,
 	Path,
 	Graph,
+	Briefcase,
+	Megaphone,
 } from "@phosphor-icons/react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { useMode } from "./flow";
+import { useMode, type Flow } from "./flow";
 import { saveBrief } from "@/hooks/use-search";
 import { BrandLogo } from "./brand-logo";
 import { TypePill } from "./type-pill";
@@ -38,24 +40,69 @@ export function LandingPage() {
 	);
 }
 
-const REC_PLACEHOLDER =
-	"Find me senior backend engineers in Berlin who shipped fintech infra at a Series-B+, fluent in Go or Rust";
-const SALES_PLACEHOLDER =
-	"Find me Heads of People at HR-Tech SaaS in DACH (50–250 employees) who recently raised Series-A and are replacing legacy HRIS";
+// Each cycle entry pairs a flow with one example prompt. The hero
+// alternates recruiting / sales / recruiting / sales so the demo
+// audience sees both modes without the user having to toggle.
+const PROMPT_CYCLE: Array<{ flow: Flow; prompt: string }> = [
+	{
+		flow: "recruiting",
+		prompt:
+			"Find me senior backend engineers in Berlin who shipped fintech infra at a Series-B+, fluent in Go or Rust",
+	},
+	{
+		flow: "sales",
+		prompt:
+			"Find me Heads of People at HR-Tech SaaS in DACH (50–250 employees) who recently raised Series-A",
+	},
+	{
+		flow: "recruiting",
+		prompt:
+			"Staff ML engineers in São Paulo with NLP background at a Series-A/B startup",
+	},
+	{
+		flow: "sales",
+		prompt:
+			"VPs of RevOps at B2B SaaS in the US, 200–1000 headcount, replacing legacy CRM",
+	},
+	{
+		flow: "recruiting",
+		prompt:
+			"Talent Acquisition leads in EU comfortable hiring senior engineers",
+	},
+	{
+		flow: "sales",
+		prompt:
+			"CISOs at US fintech, 500+ employees, evaluating identity-verification vendors",
+	},
+];
 
 function Hero() {
 	const navigate = useNavigate();
-	const { flow } = useMode();
-	const [q, setQ] = useState(REC_PLACEHOLDER);
+	const { flow, setFlow } = useMode();
+	const [tickIdx, setTickIdx] = useState(0);
+	const initial = PROMPT_CYCLE[0];
+	const [q, setQ] = useState(initial.prompt);
 	const [touched, setTouched] = useState(false);
+	const [focused, setFocused] = useState(false);
 	const taRef = useRef<HTMLTextAreaElement | null>(null);
 
-	// Refresh the example to match the active mode unless the user typed.
+	// Auto-cycle the toggle + prompt every 3.4s while the input is idle.
+	// Pauses the moment the user focuses or starts typing.
 	useEffect(() => {
-		if (!touched) {
-			setQ(flow === "sales" ? SALES_PLACEHOLDER : REC_PLACEHOLDER);
-		}
-	}, [flow, touched]);
+		if (touched || focused) return;
+		const t = window.setInterval(() => {
+			setTickIdx((i) => (i + 1) % PROMPT_CYCLE.length);
+		}, 3_400);
+		return () => window.clearInterval(t);
+	}, [touched, focused]);
+
+	// Drive prompt + flow off the cycle index whenever it advances.
+	useEffect(() => {
+		if (touched) return;
+		const entry = PROMPT_CYCLE[tickIdx];
+		setQ(entry.prompt);
+		if (entry.flow !== flow) setFlow(entry.flow);
+	}, [tickIdx, touched, flow, setFlow]);
 
 	// Auto-grow so the whole prompt is always visible.
 	useEffect(() => {
@@ -72,6 +119,14 @@ function Hero() {
 		void navigate({ to: "/new/thinking" });
 	}
 
+	function pickFlow(next: Flow) {
+		setTouched(true);
+		setFlow(next);
+		const matching = PROMPT_CYCLE.find((e) => e.flow === next);
+		if (matching) setQ(matching.prompt);
+		setTimeout(() => taRef.current?.focus(), 0);
+	}
+
 	return (
 		<section className="px-8 pt-22 pb-6 text-center">
 			<div className="mx-auto max-w-[1140px]">
@@ -86,12 +141,17 @@ function Hero() {
 					with the exact{" "}
 					{flow === "sales" ? "buyers" : "talent"} you need.
 				</p>
+
+				<div className="mt-7 flex justify-center">
+					<FlowToggle flow={flow} onPick={pickFlow} />
+				</div>
+
 				<form
 					onSubmit={(e) => {
 						e.preventDefault();
 						submit();
 					}}
-					className="mx-auto mt-9 flex max-w-[760px] items-stretch gap-2.5"
+					className="mx-auto mt-5 flex max-w-[760px] items-stretch gap-2.5"
 				>
 					<div className="relative flex-1">
 						<MagnifyingGlass
@@ -106,6 +166,8 @@ function Hero() {
 								setQ(e.target.value);
 								setTouched(true);
 							}}
+							onFocus={() => setFocused(true)}
+							onBlur={() => setFocused(false)}
 							onKeyDown={(e) => {
 								// Submit on plain Enter; Shift+Enter makes a newline.
 								if (e.key === "Enter" && !e.shiftKey) {
@@ -136,6 +198,70 @@ function Hero() {
 				</div>
 			</div>
 		</section>
+	);
+}
+
+function FlowToggle({
+	flow,
+	onPick,
+}: {
+	flow: Flow;
+	onPick: (f: Flow) => void;
+}) {
+	return (
+		<div
+			role="tablist"
+			aria-label="Search mode"
+			className="inline-flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm"
+		>
+			<FlowTab
+				active={flow === "recruiting"}
+				onClick={() => onPick("recruiting")}
+				icon={<Briefcase size={14} weight="fill" />}
+				label="Hiring"
+			/>
+			<FlowTab
+				active={flow === "sales"}
+				onClick={() => onPick("sales")}
+				icon={<Megaphone size={14} weight="fill" />}
+				label="Leads"
+			/>
+		</div>
+	);
+}
+
+function FlowTab({
+	active,
+	onClick,
+	icon,
+	label,
+}: {
+	active: boolean;
+	onClick: () => void;
+	icon: React.ReactNode;
+	label: string;
+}) {
+	return (
+		<button
+			type="button"
+			role="tab"
+			aria-selected={active}
+			onClick={onClick}
+			className={cn(
+				"inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-[13px] font-medium transition-all",
+				active
+					? "text-white shadow-sm"
+					: "text-muted-foreground hover:text-foreground",
+			)}
+			style={
+				active
+					? { background: "var(--color-brand)" }
+					: undefined
+			}
+		>
+			{icon}
+			{label}
+		</button>
 	);
 }
 
