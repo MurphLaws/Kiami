@@ -2,12 +2,10 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import {
 	ArrowLeft,
-	Buildings,
 	CaretDown,
-	CaretRight,
+	Check,
 	Copy,
 	Export,
-	LinkSimple,
 	LinkedinLogo,
 	Phone,
 	Sparkle,
@@ -20,13 +18,6 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet";
 import { FocusedHeader } from "@/components/kiami/focused-header";
 import { personNoun, useMode } from "@/components/kiami/flow";
 import {
@@ -51,7 +42,6 @@ function ResultsPage() {
 
 	const [result, setResult] = useState<StoredSearchResult | null>(null);
 	const [filter, setFilter] = useState<SourceFilter>("all");
-	const [activeIdx, setActiveIdx] = useState<number | null>(null);
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
 	const [scheduleByIdx, setScheduleByIdx] = useState<
 		Record<number, ScheduleState>
@@ -200,7 +190,6 @@ function ResultsPage() {
 	const highCount = result.leads.filter((l) => l.high_profile).length;
 	const lowCount = result.leads.length - highCount;
 
-	const activeLead = activeIdx !== null ? result.leads[activeIdx] : null;
 	const fatal = classifyError(result);
 
 	return (
@@ -372,149 +361,25 @@ function ResultsPage() {
 						</div>
 					) : (
 						<>
-							<div className="grid grid-cols-[28px_28px_1fr_180px_140px_120px_140px_36px] items-center gap-4 border-b bg-muted px-4 py-2.5 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-								<span />
-								<span />
-								<span>{peopleSingular}</span>
-								<span>Company</span>
-								<span>Location</span>
-								<span>Source</span>
-								<span />
-								<span />
-							</div>
-							{visibleIdx.map((idx, i) => {
+							{visibleIdx.map((idx) => {
 								const l = result.leads[idx];
-								const isHigh = !!l.high_profile;
 								const isOpen = expanded.has(idx);
 								const sched = scheduleByIdx[idx] ?? "idle";
 								return (
-									<div
+									<EditorialRow
 										key={`${l.source}-${l.linkedin_url ?? l.full_name}-${idx}`}
-									>
-										<div
-											className={cn(
-												"grid grid-cols-[28px_28px_1fr_180px_140px_120px_140px_36px] items-center gap-4 px-4 py-3.5 text-sm transition-colors",
-												i < visibleIdx.length - 1 && !isOpen && "border-b",
-											)}
-										>
-											<button
-												type="button"
-												onClick={() => toggleExpand(idx)}
-												className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-												aria-label={isOpen ? "Collapse" : "Expand"}
-											>
-												{isOpen ? (
-													<CaretDown size={14} weight="bold" />
-												) : (
-													<CaretRight size={14} weight="bold" />
-												)}
-											</button>
-											<button
-												type="button"
-												onClick={() => isHigh && setActiveIdx(idx)}
-												className="grid h-5 w-5 place-items-center"
-												aria-label={isHigh ? "Open brief" : ""}
-											>
-												{isHigh ? (
-													<Star
-														size={14}
-														weight="fill"
-														color="var(--color-brand)"
-													/>
-												) : null}
-											</button>
-											<div className="min-w-0">
-												<div className="flex items-center gap-2">
-													<span className="truncate font-medium text-foreground">
-														{l.full_name}
-													</span>
-													{isHigh && (
-														<Badge
-															variant="secondary"
-															className="py-0.5 text-[10px]"
-															style={{
-																background: "var(--color-brand-tint)",
-																color: "var(--color-brand)",
-															}}
-														>
-															High profile
-														</Badge>
-													)}
-												</div>
-												<div className="mt-0.5 truncate text-[12px] text-muted-foreground">
-													{[l.job_title, l.seniority]
-														.filter(Boolean)
-														.join(" · ") || "—"}
-												</div>
-											</div>
-											<div className="min-w-0">
-												<div className="flex items-center gap-1.5 truncate text-[13px] text-foreground/80">
-													<Buildings size={12} />
-													<span className="truncate">
-														{l.company_name ?? "—"}
-													</span>
-												</div>
-												<div className="truncate text-[11px] text-muted-foreground">
-													{l.company_industry ?? l.company_domain ?? ""}
-												</div>
-											</div>
-											<span className="truncate text-[13px] text-muted-foreground">
-												{l.location ?? "—"}
-											</span>
-											<SourceBadge source={l.source} />
-											<div>
-												{!isHigh ? (
-													<ScheduleButton
-														state={sched}
-														onClick={() => scheduleOne(idx)}
-													/>
-												) : (
-													<Button
-														size="sm"
-														variant="outline"
-														className="gap-1.5"
-														onClick={() => setActiveIdx(idx)}
-													>
-														<Sparkle
-															size={12}
-															weight="fill"
-															color="var(--color-brand)"
-														/>
-														Brief
-													</Button>
-												)}
-											</div>
-											<div className="justify-self-end">
-												{l.linkedin_url ? (
-													<a
-														href={l.linkedin_url}
-														target="_blank"
-														rel="noreferrer"
-														onClick={(e) => e.stopPropagation()}
-														className="p-1.5 text-muted-foreground hover:text-foreground"
-													>
-														<LinkSimple size={14} weight="bold" />
-													</a>
-												) : null}
-											</div>
-										</div>
-										{isOpen && (
-											<FoldedDetails lead={l} last={i === visibleIdx.length - 1} />
-										)}
-									</div>
+										lead={l}
+										expanded={isOpen}
+										scheduleState={sched}
+										onToggle={() => toggleExpand(idx)}
+										onSchedule={() => scheduleOne(idx)}
+									/>
 								);
 							})}
 						</>
 					)}
 				</Card>
 			</div>
-
-			<HighProfileDrawer
-				open={activeIdx !== null && (result.leads[activeIdx]?.high_profile ?? false)}
-				onOpenChange={(o) => !o && setActiveIdx(null)}
-				lead={activeLead}
-				flow={flow}
-			/>
 		</div>
 	);
 }
@@ -588,30 +453,38 @@ function ScheduleButton({
 	const loading = state === "loading";
 	const error = state === "error";
 	return (
-		<Button
-			size="sm"
-			variant="outline"
-			disabled={loading}
-			onClick={onClick}
-			className={cn(
-				"min-w-[130px] gap-1.5 transition-colors",
-				loading &&
-					"!bg-[#22A06B] !text-white hover:!bg-[#22A06B] !border-[#22A06B] disabled:opacity-100",
-				error && "!border-destructive !text-destructive",
+		<div className="relative inline-flex">
+			{loading && (
+				<span
+					aria-hidden
+					className="kiami-call-pulse pointer-events-none absolute inset-0 rounded-md"
+				/>
 			)}
-		>
-			{loading ? (
-				<>
-					<Spinner size={12} className="animate-spin" />
-					Scheduling…
-				</>
-			) : (
-				<>
-					<Phone size={12} weight="bold" />
-					Schedule call
-				</>
-			)}
-		</Button>
+			<Button
+				size="sm"
+				variant="outline"
+				disabled={loading}
+				onClick={onClick}
+				className={cn(
+					"relative z-10 min-w-[130px] gap-1.5 transition-colors",
+					loading &&
+						"!bg-[#22A06B] !text-white hover:!bg-[#22A06B] !border-[#22A06B] disabled:opacity-100",
+					error && "!border-destructive !text-destructive",
+				)}
+			>
+				{loading ? (
+					<>
+						<Spinner size={12} className="animate-spin" />
+						Scheduling…
+					</>
+				) : (
+					<>
+						<Phone size={12} weight="bold" />
+						Schedule call
+					</>
+				)}
+			</Button>
+		</div>
 	);
 }
 
@@ -655,56 +528,312 @@ function GlobalScheduleButton({
 	);
 }
 
-function FoldedDetails({ lead, last }: { lead: StoredLead; last: boolean }) {
-	// Pull every populated field out of the raw upstream payload so the
-	// recruiter can see what we actually have. Hide nullish, empty arrays,
-	// and obvious internal-only fields.
-	const raw = lead.raw ?? {};
-	const entries = Object.entries(raw)
-		.filter(([k, v]) => {
-			if (k.startsWith("_")) return false;
-			if (k === "raw") return false;
-			if (v === null || v === undefined) return false;
-			if (Array.isArray(v) && v.length === 0) return false;
-			if (typeof v === "string" && v.trim() === "") return false;
-			if (typeof v === "object") return Object.keys(v as object).length > 0;
-			return true;
-		})
-		.sort((a, b) => a[0].localeCompare(b[0]));
+function EditorialRow({
+	lead,
+	expanded,
+	scheduleState,
+	onToggle,
+	onSchedule,
+}: {
+	lead: StoredLead;
+	expanded: boolean;
+	scheduleState: ScheduleState;
+	onToggle: () => void;
+	onSchedule: () => void;
+}) {
+	const isHigh = !!lead.high_profile;
+	const initials = (lead.full_name ?? "")
+		.split(/\s+/)
+		.filter(Boolean)
+		.slice(0, 2)
+		.map((s) => s[0]?.toUpperCase() ?? "")
+		.join("");
+	const tag = leadRowTag(lead);
+	return (
+		<div className="border-b last:border-b-0">
+			<div className="grid grid-cols-[36px_minmax(0,1.4fr)_minmax(0,1fr)_140px_150px_28px] items-center gap-4 px-4 py-3.5 transition-colors hover:bg-muted/40">
+				{/* Avatar */}
+				<button
+					type="button"
+					onClick={onToggle}
+					aria-label={expanded ? "Collapse" : "Expand"}
+					className="grid h-8 w-8 place-items-center rounded-full text-[10px] font-semibold transition-colors"
+					style={{
+						background: "var(--color-brand-tint)",
+						color: "var(--color-brand)",
+					}}
+				>
+					{initials || "·"}
+				</button>
+
+				{/* Name + title */}
+				<button
+					type="button"
+					onClick={onToggle}
+					className="min-w-0 text-left"
+				>
+					<div className="flex items-center gap-2">
+						<span className="truncate font-medium text-foreground">
+							{lead.full_name}
+						</span>
+						{isHigh && (
+							<span
+								className="inline-flex items-center gap-1 rounded px-1.5 py-px text-[10px] font-medium"
+								style={{
+									background: "var(--color-brand-tint)",
+									color: "var(--color-brand)",
+								}}
+							>
+								<Star size={9} weight="fill" />
+								High
+							</span>
+						)}
+					</div>
+					<div className="mt-0.5 truncate text-[12px] text-muted-foreground">
+						{[lead.job_title, lead.seniority]
+							.filter(Boolean)
+							.join(" · ") || "—"}
+					</div>
+				</button>
+
+				{/* Company */}
+				<button
+					type="button"
+					onClick={onToggle}
+					className="min-w-0 text-left"
+				>
+					<div className="truncate text-[13px] text-foreground">
+						{lead.company_name ?? "—"}
+					</div>
+					<div className="truncate text-[11px] text-muted-foreground">
+						{lead.company_industry ?? lead.location ?? ""}
+					</div>
+				</button>
+
+				{/* Classification dot + tag */}
+				<div>{tag && <RowTag tag={tag} />}</div>
+
+				{/* Schedule */}
+				<div>
+					<ScheduleButton state={scheduleState} onClick={onSchedule} />
+				</div>
+
+				{/* Caret */}
+				<button
+					type="button"
+					onClick={onToggle}
+					aria-label={expanded ? "Collapse" : "Expand"}
+					className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+				>
+					<CaretDown
+						size={12}
+						weight="bold"
+						className="transition-transform duration-150"
+						style={{ transform: expanded ? "rotate(180deg)" : "rotate(0)" }}
+					/>
+				</button>
+			</div>
+
+			{expanded && <FoldedDetails lead={lead} />}
+		</div>
+	);
+}
+
+type RowTagShape = { label: string; tone: "hot" | "warm" | "cold" | "neutral" };
+
+function leadRowTag(lead: StoredLead): RowTagShape | null {
+	if (!lead.classification) {
+		if (lead.match_strictness === "strict") {
+			return { label: "Strict match", tone: "warm" };
+		}
+		if (lead.match_strictness === "lax") {
+			return { label: "Adjacent fit", tone: "neutral" };
+		}
+		return lead.source === "bettercontact"
+			? { label: "Primary", tone: "warm" }
+			: { label: "Wider sweep", tone: "neutral" };
+	}
+	if (lead.classification.kind === "lead") {
+		return { label: lead.classification.tier, tone: lead.classification.tier };
+	}
+	const rec = lead.classification.recommendation;
+	const tone: RowTagShape["tone"] =
+		rec === "shortlist" ? "hot" : rec === "screen" ? "warm" : "cold";
+	return { label: rec, tone };
+}
+
+function RowTag({ tag }: { tag: RowTagShape }) {
+	const dot =
+		tag.tone === "hot"
+			? "var(--color-brand)"
+			: tag.tone === "warm"
+				? "#9DC2FF"
+				: tag.tone === "cold"
+					? "var(--color-border-strong)"
+					: "var(--color-border-strong)";
+	return (
+		<div className="inline-flex items-center gap-2 text-[12px] text-muted-foreground">
+			<span
+				className="inline-block h-1.5 w-1.5 rounded-full"
+				style={{ background: dot }}
+			/>
+			<span className="capitalize">{tag.label}</span>
+		</div>
+	);
+}
+
+function FoldedDetails({ lead }: { lead: StoredLead }) {
+	const [copied, setCopied] = useState(false);
+	const copyOpener = async () => {
+		const opener = lead.brief?.suggested_opener;
+		if (!opener) return;
+		try {
+			await navigator.clipboard.writeText(opener);
+			setCopied(true);
+			window.setTimeout(() => setCopied(false), 1500);
+		} catch {}
+	};
+
+	const signals: Array<[string, string | null]> = [
+		["Industry", lead.company_industry ?? null],
+		[
+			"Headcount",
+			lead.company_headcount != null ? String(lead.company_headcount) : null,
+		],
+		["Location", lead.location ?? null],
+		["Seniority", lead.seniority ?? null],
+		["Domain", lead.company_domain ?? null],
+		[
+			"Source",
+			lead.source === "bettercontact" ? "Primary index" : "Wider sweep",
+		],
+	];
+	const filled = signals.filter(([, v]) => v && String(v).trim());
 
 	return (
-		<div
-			className={cn(
-				"grid grid-cols-1 gap-4 bg-muted/40 px-4 py-5 md:grid-cols-2",
-				!last && "border-b",
-			)}
-		>
-			<div className="md:col-span-2">
-				<div className="mb-2 flex items-center gap-2 text-[11px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
-					Full record
-					<span className="text-muted-foreground/70">
-						· {entries.length} fields
-					</span>
+		<div className="kiami-row-expand bg-muted/30 px-4 py-7 pl-[64px]">
+			{lead.brief && (
+				<div
+					className="mb-7 max-w-[760px] border-l-[3px] p-5"
+					style={{
+						borderColor: "var(--color-brand)",
+						background: "var(--color-brand-tint)",
+					}}
+				>
+					<span className="eyebrow">Why they fit</span>
+					<p className="mt-2 text-[14px] leading-relaxed text-foreground">
+						{lead.brief.why_they_fit}
+					</p>
+					{lead.brief.suggested_opener && (
+						<div className="mt-4">
+							<div className="mb-1.5 flex items-center justify-between">
+								<span className="eyebrow">Suggested opener</span>
+								<button
+									type="button"
+									onClick={copyOpener}
+									className="inline-flex items-center gap-1 font-mono-display text-[10px] tracking-[0.18em] text-muted-foreground uppercase transition-colors hover:text-foreground"
+								>
+									{copied ? (
+										<>
+											<Check size={10} weight="bold" />
+											Copied
+										</>
+									) : (
+										<>
+											<Copy size={10} weight="bold" />
+											Copy
+										</>
+									)}
+								</button>
+							</div>
+							<p
+								className="border-l pl-3 text-[14px] leading-relaxed text-foreground"
+								style={{
+									borderColor: "color-mix(in srgb, var(--color-brand) 30%, transparent)",
+									fontStyle: "italic",
+								}}
+							>
+								"{lead.brief.suggested_opener}"
+							</p>
+						</div>
+					)}
 				</div>
-				{entries.length === 0 && (
-					<div className="text-[13px] text-muted-foreground">
-						No additional fields available for this contact.
-					</div>
+			)}
+
+			<div className="grid max-w-[760px] grid-cols-2 gap-x-8 md:grid-cols-3">
+				{filled.map(([k, v]) => {
+					const isNumeric = /^[\d.,\s]+$/.test(String(v));
+					return (
+						<div key={k} className="border-t py-3">
+							<span className="eyebrow">{k}</span>
+							<div
+								className={cn(
+									"mt-1 text-[13px] text-foreground",
+									isNumeric && "font-mono-display tnum",
+								)}
+							>
+								{v}
+							</div>
+						</div>
+					);
+				})}
+				{lead.classification && (
+					<ClassificationCell classification={lead.classification} />
 				)}
 			</div>
-			{entries.map(([k, v]) => (
-				<div
-					key={k}
-					className="flex flex-col gap-1 rounded-lg border bg-card px-3 py-2"
-				>
-					<span className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-						{k.replace(/_/g, " ")}
-					</span>
-					<span className="break-words text-[13px] text-foreground">
-						{renderValue(v)}
-					</span>
+
+			{lead.linkedin_url && (
+				<div className="mt-5 max-w-[760px]">
+					<a
+						href={lead.linkedin_url}
+						target="_blank"
+						rel="noreferrer"
+						className="inline-flex items-center gap-1.5 text-[12px] transition-colors"
+						style={{ color: "var(--color-brand)" }}
+					>
+						<LinkedinLogo size={12} weight="fill" />
+						Open LinkedIn profile
+					</a>
 				</div>
-			))}
+			)}
+		</div>
+	);
+}
+
+function ClassificationCell({
+	classification,
+}: {
+	classification: NonNullable<StoredLead["classification"]>;
+}) {
+	let label = "";
+	let value = "";
+	let highlight = false;
+	if (classification.kind === "lead") {
+		label = "Tier";
+		value = classification.tier;
+		highlight = classification.tier === "hot";
+	} else {
+		label = "Recommendation";
+		value = classification.recommendation;
+		highlight = classification.recommendation === "shortlist";
+	}
+	return (
+		<div className="border-t py-3">
+			<span className="eyebrow">{label}</span>
+			<div className="mt-1 flex items-center gap-2 text-[13px] text-foreground">
+				{highlight && (
+					<span
+						className="inline-block h-1.5 w-1.5 rounded-full"
+						style={{ background: "#9DC2FF" }}
+					/>
+				)}
+				<span className="capitalize">{value}</span>
+			</div>
+			{classification.reasoning && (
+				<p className="mt-1 text-[12px] leading-snug text-muted-foreground">
+					{classification.reasoning}
+				</p>
+			)}
 		</div>
 	);
 }
@@ -739,161 +868,6 @@ function describeResponse(res: unknown): string {
 	return [body, status, ms].filter(Boolean).join(" · ");
 }
 
-function HighProfileDrawer({
-	open,
-	onOpenChange,
-	lead,
-	flow,
-}: {
-	open: boolean;
-	onOpenChange: (o: boolean) => void;
-	lead: StoredLead | null;
-	flow: "recruiting" | "sales";
-}) {
-	const [copied, setCopied] = useState<"opener" | null>(null);
-	if (!lead) {
-		return (
-			<Sheet open={open} onOpenChange={onOpenChange}>
-				<SheetContent side="right" />
-			</Sheet>
-		);
-	}
-	const copy = async (text: string, key: "opener") => {
-		try {
-			await navigator.clipboard.writeText(text);
-			setCopied(key);
-			window.setTimeout(() => setCopied(null), 1500);
-		} catch {}
-	};
-	const verb = flow === "sales" ? "reach out" : "open a conversation";
-	return (
-		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent
-				side="right"
-				className="sm:max-w-md md:max-w-lg lg:max-w-xl"
-			>
-				<SheetHeader>
-					<div className="flex items-center gap-2">
-						<Star size={14} weight="fill" color="var(--color-brand)" />
-						<span className="text-[11px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
-							High profile
-						</span>
-					</div>
-					<SheetTitle className="font-heading text-[24px] tracking-tight">
-						{lead.full_name}
-					</SheetTitle>
-					<SheetDescription>
-						{[lead.job_title, lead.seniority].filter(Boolean).join(" · ") ||
-							"—"}
-					</SheetDescription>
-				</SheetHeader>
-
-				<div className="grid gap-4 px-4 pb-4">
-					<div className="grid gap-2 rounded-xl border bg-card p-4">
-						<div className="flex items-start gap-2">
-							<Buildings
-								size={14}
-								className="mt-0.5 shrink-0 text-muted-foreground"
-							/>
-							<div className="min-w-0">
-								<div className="font-medium text-foreground">
-									{lead.company_name ?? "—"}
-								</div>
-								<div className="text-[12px] text-muted-foreground">
-									{[lead.company_industry, lead.company_domain]
-										.filter(Boolean)
-										.join(" · ") || ""}
-								</div>
-							</div>
-						</div>
-						{lead.location && (
-							<div className="text-[12px] text-muted-foreground">
-								Based in {lead.location}
-							</div>
-						)}
-					</div>
-
-					{lead.brief ? (
-						<>
-							<section>
-								<div className="mb-1.5 flex items-center gap-2">
-									<Sparkle
-										size={13}
-										weight="fill"
-										color="var(--color-brand)"
-									/>
-									<span className="text-[11px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
-										Why they fit
-									</span>
-								</div>
-								<p className="text-[14px] leading-relaxed text-foreground">
-									{lead.brief.why_they_fit}
-								</p>
-							</section>
-
-							<section>
-								<div className="mb-1.5 flex items-center justify-between">
-									<span className="text-[11px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
-										Suggested opener
-									</span>
-									<button
-										type="button"
-										onClick={() =>
-											copy(lead.brief?.suggested_opener ?? "", "opener")
-										}
-										className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
-									>
-										<Copy size={12} weight="bold" />
-										{copied === "opener" ? "Copied" : "Copy"}
-									</button>
-								</div>
-								<p
-									className="rounded-xl border bg-muted px-3.5 py-3 text-[14px] leading-relaxed text-foreground"
-									style={{ fontStyle: "italic" }}
-								>
-									{lead.brief.suggested_opener}
-								</p>
-							</section>
-						</>
-					) : (
-						<div className="rounded-xl border border-dashed bg-muted/40 px-4 py-6 text-center text-[13px] text-muted-foreground">
-							A brief wasn't generated for this {personNoun(flow)}. Use the
-							LinkedIn link to {verb}.
-						</div>
-					)}
-				</div>
-
-				<div className="mt-auto flex flex-wrap gap-2 border-t bg-card px-4 py-3">
-					{lead.linkedin_url ? (
-						<a
-							href={lead.linkedin_url}
-							target="_blank"
-							rel="noreferrer"
-							className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
-						>
-							<LinkedinLogo size={14} weight="fill" />
-							Open LinkedIn
-						</a>
-					) : null}
-					{lead.company_domain && (
-						<a
-							href={`https://${lead.company_domain.replace(/^https?:\/\//, "")}`}
-							target="_blank"
-							rel="noreferrer"
-							className={cn(
-								buttonVariants({ size: "sm", variant: "outline" }),
-								"gap-1.5",
-							)}
-						>
-							<LinkSimple size={14} />
-							Visit company
-						</a>
-					)}
-				</div>
-			</SheetContent>
-		</Sheet>
-	);
-}
 
 function exportCsv(
 	leads: StoredSearchResult["leads"],

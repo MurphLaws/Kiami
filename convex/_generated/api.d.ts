@@ -11,13 +11,22 @@
 import type * as index from "../index.js";
 import type * as leads from "../leads.js";
 import type * as scheduleCall from "../scheduleCall.js";
+import type * as scrapeJob from "../scrapeJob.js";
 import type * as search from "../search.js";
 import type * as searchTypes from "../searchTypes.js";
+import type * as wrappers_ai_briefs from "../wrappers/ai/briefs.js";
+import type * as wrappers_ai_classifyCandidates from "../wrappers/ai/classifyCandidates.js";
+import type * as wrappers_ai_classifyLeads from "../wrappers/ai/classifyLeads.js";
+import type * as wrappers_ai_index from "../wrappers/ai/index.js";
+import type * as wrappers_ai_leadFilters from "../wrappers/ai/leadFilters.js";
+import type * as wrappers_ai_model from "../wrappers/ai/model.js";
+import type * as wrappers_ai_prompts from "../wrappers/ai/prompts.js";
+import type * as wrappers_ai_recruitingFilters from "../wrappers/ai/recruitingFilters.js";
+import type * as wrappers_ai_schemas from "../wrappers/ai/schemas.js";
+import type * as wrappers_ai_score from "../wrappers/ai/score.js";
 import type * as wrappers_apollo from "../wrappers/apollo.js";
 import type * as wrappers_bc from "../wrappers/bc.js";
-import type * as wrappers_briefs from "../wrappers/briefs.js";
 import type * as wrappers_enums from "../wrappers/enums.js";
-import type * as wrappers_openai from "../wrappers/openai.js";
 
 import type {
   ApiFromModules,
@@ -29,13 +38,22 @@ declare const fullApi: ApiFromModules<{
   index: typeof index;
   leads: typeof leads;
   scheduleCall: typeof scheduleCall;
+  scrapeJob: typeof scrapeJob;
   search: typeof search;
   searchTypes: typeof searchTypes;
+  "wrappers/ai/briefs": typeof wrappers_ai_briefs;
+  "wrappers/ai/classifyCandidates": typeof wrappers_ai_classifyCandidates;
+  "wrappers/ai/classifyLeads": typeof wrappers_ai_classifyLeads;
+  "wrappers/ai/index": typeof wrappers_ai_index;
+  "wrappers/ai/leadFilters": typeof wrappers_ai_leadFilters;
+  "wrappers/ai/model": typeof wrappers_ai_model;
+  "wrappers/ai/prompts": typeof wrappers_ai_prompts;
+  "wrappers/ai/recruitingFilters": typeof wrappers_ai_recruitingFilters;
+  "wrappers/ai/schemas": typeof wrappers_ai_schemas;
+  "wrappers/ai/score": typeof wrappers_ai_score;
   "wrappers/apollo": typeof wrappers_apollo;
   "wrappers/bc": typeof wrappers_bc;
-  "wrappers/briefs": typeof wrappers_briefs;
   "wrappers/enums": typeof wrappers_enums;
-  "wrappers/openai": typeof wrappers_openai;
 }>;
 
 /**

@@ -1,10 +1,10 @@
 // Barrel for the four roadmap tools + supporting helpers.
 
 export { generateBriefs } from "./briefs";
-export { classifyCandidates } from "./classify-candidates";
-export { classifyLeads } from "./classify-leads";
-export { generateLeadFilters } from "./lead-filters";
-export { generateRecruitingFilters } from "./recruiting-filters";
+export { classifyCandidates } from "./classifyCandidates";
+export { classifyLeads } from "./classifyLeads";
+export { generateLeadFilters } from "./leadFilters";
+export { generateRecruitingFilters } from "./recruitingFilters";
 export { pickHighProfile, scoreLead } from "./score";
 export type {
 	ApolloFilterSet,
