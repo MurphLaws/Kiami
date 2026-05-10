@@ -7,7 +7,10 @@
 //   - a one-line rationale
 //
 // We use the Chat Completions JSON mode (response_format: json_schema)
-// against gpt-4o-mini — fast and cheap for structured extraction.
+// against gpt-4o — robust instruction-following + json_schema support, so
+// it nails the closed-enum filter slots without dropping into mini's
+// failure modes (mistaking team size for company size, putting industry
+// words into the company-domain field, etc.).
 
 import {
 	APOLLO_SENIORITY_ENUM,
@@ -214,7 +217,7 @@ export async function inferFilters(brief: {
 			Authorization: `Bearer ${openaiKey()}`,
 		},
 		body: JSON.stringify({
-			model: "gpt-4o-mini",
+			model: "gpt-4o",
 			messages: [
 				{ role: "system", content: SYSTEM_PROMPT },
 				{ role: "user", content: userPrompt },

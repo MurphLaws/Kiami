@@ -136,7 +136,7 @@ export async function generateBriefs(args: {
 			Authorization: `Bearer ${openaiKey()}`,
 		},
 		body: JSON.stringify({
-			model: "gpt-4o-mini",
+			model: "gpt-4o",
 			messages: [
 				{ role: "system", content: SYSTEM_PROMPT },
 				{ role: "user", content: userPrompt },
