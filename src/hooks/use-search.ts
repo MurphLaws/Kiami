@@ -76,6 +76,16 @@ const RESULT_KEY = "kiami:lastResult";
 export function saveBrief(brief: StoredBrief) {
 	if (typeof window === "undefined") return;
 	sessionStorage.setItem(BRIEF_KEY, JSON.stringify(brief));
+	// Wipe any previously-cached result the moment the user kicks off
+	// a new search. Without this, a fast click-through to /results
+	// could surface stale leads from the prior run — exactly the
+	// "5 leads in a live demo" failure mode we got bit by once.
+	sessionStorage.removeItem(RESULT_KEY);
+}
+
+export function clearResult() {
+	if (typeof window === "undefined") return;
+	sessionStorage.removeItem(RESULT_KEY);
 }
 
 export function loadBrief(): StoredBrief | null {

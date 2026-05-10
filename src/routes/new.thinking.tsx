@@ -4,6 +4,7 @@ import { Check, Warning } from "@phosphor-icons/react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { FocusedHeader } from "@/components/kiami/focused-header";
 import {
+	clearResult,
 	loadBrief,
 	saveResult,
 	useRunSearch,
@@ -38,6 +39,10 @@ function ThinkingPage() {
 			void navigate({ to: "/new" });
 			return;
 		}
+		// Hard reset: even if saveBrief already cleared the cached
+		// result, wipe it again here so the user can never land on
+		// /results with stale data while this run is in flight.
+		clearResult();
 
 		const interval = window.setInterval(() => {
 			setStep((s) => Math.min(s + 1, TRACE_LINES.length - 1));
