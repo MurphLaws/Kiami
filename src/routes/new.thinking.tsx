@@ -20,7 +20,6 @@ const TRACE_LINES = [
 	"Querying the primary index.",
 	"Cross-checking the wider network.",
 	"Ranking by fit and recency.",
-	"Stripping PII and assembling results.",
 ];
 
 function ThinkingPage() {
