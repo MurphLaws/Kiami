@@ -1,9 +1,19 @@
 import { useEffect, useState } from "react";
 
-// Three words, all 7 letters, all grammatically clean after
-// "Stop building ___". Equal length keeps the placeholder width
-// stable so the line never looks lopsided.
-const DEFAULT = ["filters", "queries", "funnels"];
+// Six words, all exactly 7 letters, all read as "structured sourcing
+// tooling that Kiami replaces". 7 is the sweet-spot length here:
+// short enough that the hero stays on one line at h1 sizes, long
+// enough that there are plenty of synonyms to pick from. Equal
+// length keeps the placeholder width stable so the line never
+// looks lopsided.
+const DEFAULT = [
+	"filters",
+	"queries",
+	"funnels",
+	"toggles",
+	"buckets",
+	"cohorts",
+];
 
 export function RotatingWord({
 	words = DEFAULT,
