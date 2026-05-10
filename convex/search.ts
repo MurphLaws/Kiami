@@ -54,8 +54,12 @@ import {
 // looking suspiciously round.
 const BC_TARGET = 50;
 const APOLLO_FALLBACK_THRESHOLD = 30;
-const MIN_LEADS_LO = 50;
-const MIN_LEADS_HI = 60;
+// Synthesized leads are demo padding only — never more than 5 per
+// search regardless of how few real BC leads come back. Marketing
+// honesty: the row + fold both make clear these are AI-suggested
+// (no LinkedIn link, "Suggested by AI" pill), but we cap the count
+// so they never dominate the result list.
+const MAX_SYNTHESIZED = 5;
 // Up to this many strict-filter slots can fail before a lead is demoted
 // from high-profile to low-profile. Set to 2 so high_profile stays
 // "more affine than low" without requiring an exact match.
@@ -127,9 +131,9 @@ export const runSearch = action({
 					},
 				},
 				rationale:
-					err instanceof Error && /quota|rate/i.test(err.message)
-						? "OpenAI quota exhausted — showing inferred leads only."
-						: "Filter agent unavailable — showing inferred leads only.",
+					err instanceof Error && /quota|rate|resource_exhausted/i.test(err.message)
+						? "LLM quota exhausted — showing AI-suggested leads only."
+						: "Filter agent unavailable — showing AI-suggested leads only.",
 			};
 		}
 
@@ -202,18 +206,15 @@ export const runSearch = action({
 			}
 		}
 
-		// --- Pad with synthesized leads to a random target [40, 50] ---
-		// The user wants 40–50 contacts per search even when BC + Apollo
-		// come up short. The exact target is picked deterministically
-		// from the brief so it stays stable across re-runs of the same
-		// brief but varies search-to-search.
-		const briefSeed = hash32(args.brief + args.flow);
-		const targetCount =
-			MIN_LEADS_LO + (briefSeed % (MIN_LEADS_HI - MIN_LEADS_LO + 1));
-		if (result.leads.length < targetCount) {
-			const need = targetCount - result.leads.length;
+		// --- Top up with up to MAX_SYNTHESIZED AI-suggested leads ---
+		// Demo padding only, capped at 5 regardless of how thin the
+		// real result is. These rows render with a "Suggested by AI"
+		// pill, no LinkedIn link, and Inferred classification — they
+		// are NEVER passed off as real profiles.
+		const synthCount = MAX_SYNTHESIZED;
+		if (synthCount > 0) {
 			const synthesized = synthesizeLeads({
-				count: need,
+				count: synthCount,
 				brief: args.brief,
 				flow: args.flow,
 				strict: sanitizedStrict,
@@ -867,14 +868,15 @@ function synthesizeLeads(opts: {
 		const location = pick(locationHints);
 		const seniority = (pick(seniorityHints) ?? "senior").toString();
 		const industry = pick(industryHints) ?? "software";
-		const slug = `${first}-${last}`.toLowerCase().replace(/[^a-z-]/g, "");
 		out.push({
 			source: "synthesized",
 			full_name: fullName,
 			job_title: title,
 			seniority,
 			location,
-			linkedin_url: `https://www.linkedin.com/in/${slug}`,
+			// Synthesized leads have no real LinkedIn profile — we
+			// deliberately leave linkedin_url undefined so the row
+			// shows "no profile" instead of a dead link.
 			company_name: companyName,
 			company_industry: industry,
 			company_domain: domain,

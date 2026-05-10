@@ -827,9 +827,16 @@ function EditorialRow({
 					</div>
 				</button>
 
-				{/* LinkedIn — prominent button per the user's ask */}
+				{/* LinkedIn — synthesized leads never have a real profile,
+				    so we show a clear "AI-suggested" indicator instead of
+				    a button that 404s. */}
 				<div>
-					{lead.linkedin_url ? (
+					{isSynth ? (
+						<span className="inline-flex items-center gap-1 font-mono-display text-[10px] tracking-[0.18em] text-muted-foreground/70 uppercase">
+							<Sparkle size={9} weight="fill" />
+							AI · no profile
+						</span>
+					) : lead.linkedin_url ? (
 						<a
 							href={lead.linkedin_url}
 							target="_blank"
@@ -989,7 +996,7 @@ function FoldedDetails({ lead }: { lead: StoredLead }) {
 				)}
 			</div>
 
-			{lead.linkedin_url && (
+			{lead.linkedin_url && lead.source !== "synthesized" && (
 				<div className="mt-5 max-w-[760px]">
 					<a
 						href={lead.linkedin_url}
