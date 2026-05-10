@@ -1,16 +1,23 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
 	ArrowLeft,
 	Buildings,
+	CaretDown,
+	CaretRight,
+	Check,
 	Copy,
 	Export,
 	LinkSimple,
 	LinkedinLogo,
+	Phone,
 	Sparkle,
+	Spinner,
 	Star,
 	Warning,
 } from "@phosphor-icons/react";
+import { toast } from "sonner";
+
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,6 +32,7 @@ import { FocusedHeader } from "@/components/kiami/focused-header";
 import { personNoun, useMode } from "@/components/kiami/flow";
 import {
 	loadResult,
+	useScheduleCall,
 	type StoredLead,
 	type StoredSearchResult,
 } from "@/hooks/use-search";
@@ -35,13 +43,21 @@ export const Route = createFileRoute("/results")({
 });
 
 type SourceFilter = "all" | "primary" | "network" | "high";
+type ScheduleState = "idle" | "loading" | "done" | "error";
 
 function ResultsPage() {
 	const navigate = useNavigate();
 	const { flow } = useMode();
+	const scheduleCall = useScheduleCall();
+
 	const [result, setResult] = useState<StoredSearchResult | null>(null);
 	const [filter, setFilter] = useState<SourceFilter>("all");
 	const [activeIdx, setActiveIdx] = useState<number | null>(null);
+	const [expanded, setExpanded] = useState<Set<number>>(new Set());
+	const [scheduleByIdx, setScheduleByIdx] = useState<
+		Record<number, ScheduleState>
+	>({});
+	const [globalState, setGlobalState] = useState<ScheduleState>("idle");
 
 	useEffect(() => {
 		const r = loadResult();
@@ -51,6 +67,119 @@ function ResultsPage() {
 		}
 		setResult(r);
 	}, [navigate]);
+
+	const toggleExpand = useCallback((i: number) => {
+		setExpanded((prev) => {
+			const n = new Set(prev);
+			n.has(i) ? n.delete(i) : n.add(i);
+			return n;
+		});
+	}, []);
+
+	const scheduleOne = useCallback(
+		async (idx: number) => {
+			if (!result) return;
+			const lead = result.leads[idx];
+			setScheduleByIdx((m) => ({ ...m, [idx]: "loading" }));
+			try {
+				const res = await scheduleCall({
+					full_name: lead.full_name,
+					company: lead.company_name,
+					company_domain: lead.company_domain,
+					flow,
+					tier: lead.high_profile ? "high" : "low",
+				});
+				const ok = (res as { ok?: boolean })?.ok !== false;
+				const message = describeResponse(res);
+				if (ok) {
+					toast.success(`Call scheduled for ${lead.full_name}`, {
+						description: message,
+					});
+					setScheduleByIdx((m) => ({ ...m, [idx]: "done" }));
+				} else {
+					toast.error(`Couldn't schedule ${lead.full_name}`, {
+						description: message,
+					});
+					setScheduleByIdx((m) => ({ ...m, [idx]: "error" }));
+				}
+			} catch (err) {
+				toast.error(`Couldn't schedule ${lead.full_name}`, {
+					description: err instanceof Error ? err.message : String(err),
+				});
+				setScheduleByIdx((m) => ({ ...m, [idx]: "error" }));
+			} finally {
+				// One-shot: fade back to idle after a beat so the user can re-fire.
+				window.setTimeout(() => {
+					setScheduleByIdx((m) => {
+						const n = { ...m };
+						delete n[idx];
+						return n;
+					});
+				}, 1800);
+			}
+		},
+		[flow, result, scheduleCall],
+	);
+
+	const scheduleAll = useCallback(async () => {
+		if (!result) return;
+		const lowIdx = result.leads
+			.map((_, i) => i)
+			.filter((i) => !result.leads[i].high_profile);
+		if (lowIdx.length === 0) return;
+
+		setGlobalState("loading");
+		// Mark every targeted row as loading too.
+		setScheduleByIdx((m) => {
+			const n = { ...m };
+			for (const i of lowIdx) n[i] = "loading";
+			return n;
+		});
+
+		const results = await Promise.allSettled(
+			lowIdx.map((i) =>
+				scheduleCall({
+					full_name: result.leads[i].full_name,
+					company: result.leads[i].company_name,
+					company_domain: result.leads[i].company_domain,
+					flow,
+					tier: "low",
+				}).then((r) => ({ i, r })),
+			),
+		);
+
+		let ok = 0;
+		let fail = 0;
+		setScheduleByIdx((m) => {
+			const n = { ...m };
+			for (const r of results) {
+				if (r.status === "fulfilled") {
+					const { i, r: payload } = r.value;
+					const isOk = (payload as { ok?: boolean })?.ok !== false;
+					n[i] = isOk ? "done" : "error";
+					isOk ? ok++ : fail++;
+				} else {
+					fail++;
+				}
+			}
+			return n;
+		});
+
+		if (fail === 0) {
+			toast.success(`Scheduled ${ok} call${ok === 1 ? "" : "s"}`);
+			setGlobalState("done");
+		} else {
+			toast.error(
+				`Scheduled ${ok} of ${lowIdx.length}; ${fail} failed`,
+			);
+			setGlobalState("error");
+		}
+
+		window.setTimeout(() => {
+			setGlobalState("idle");
+			setScheduleByIdx({});
+		}, 2200);
+	}, [flow, result, scheduleCall]);
 
 	if (!result) return null;
 
@@ -75,9 +204,9 @@ function ResultsPage() {
 		(l) => l.source === "apollo",
 	).length;
 	const highCount = result.leads.filter((l) => l.high_profile).length;
+	const lowCount = result.leads.length - highCount;
 
 	const activeLead = activeIdx !== null ? result.leads[activeIdx] : null;
-
 	const fatal = classifyError(result);
 
 	return (
@@ -139,15 +268,22 @@ function ResultsPage() {
 							</p>
 						)}
 					</div>
-					<Button
-						variant="outline"
-						className="gap-1.5"
-						onClick={() => exportCsv(result.leads, flow)}
-						disabled={result.leads.length === 0}
-					>
-						<Export size={14} />
-						Export CSV
-					</Button>
+					<div className="flex flex-wrap items-center gap-2">
+						<GlobalScheduleButton
+							state={globalState}
+							lowCount={lowCount}
+							onClick={scheduleAll}
+						/>
+						<Button
+							variant="outline"
+							className="gap-1.5"
+							onClick={() => exportCsv(result.leads, flow)}
+							disabled={result.leads.length === 0}
+						>
+							<Export size={14} />
+							Export CSV
+						</Button>
+					</div>
 				</div>
 
 				<div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -242,92 +378,136 @@ function ResultsPage() {
 						</div>
 					) : (
 						<>
-							<div className="grid grid-cols-[28px_1fr_180px_140px_120px_36px] items-center gap-4 border-b bg-muted px-4 py-2.5 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+							<div className="grid grid-cols-[28px_28px_1fr_180px_140px_120px_140px_36px] items-center gap-4 border-b bg-muted px-4 py-2.5 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+								<span />
 								<span />
 								<span>{peopleSingular}</span>
 								<span>Company</span>
 								<span>Location</span>
 								<span>Source</span>
 								<span />
+								<span />
 							</div>
 							{visibleIdx.map((idx, i) => {
 								const l = result.leads[idx];
 								const isHigh = !!l.high_profile;
+								const isOpen = expanded.has(idx);
+								const sched = scheduleByIdx[idx] ?? "idle";
 								return (
-									<button
-										type="button"
+									<div
 										key={`${l.source}-${l.linkedin_url ?? l.full_name}-${idx}`}
-										onClick={() => isHigh && setActiveIdx(idx)}
-										className={cn(
-											"grid w-full grid-cols-[28px_1fr_180px_140px_120px_36px] items-center gap-4 px-4 py-3.5 text-left text-sm transition-colors",
-											i < visibleIdx.length - 1 && "border-b",
-											isHigh
-												? "cursor-pointer hover:bg-muted/50"
-												: "cursor-default",
-										)}
 									>
-										<span className="grid h-5 w-5 place-items-center">
-											{isHigh ? (
-												<Star
-													size={14}
-													weight="fill"
-													color="var(--color-brand)"
-												/>
-											) : null}
-										</span>
-										<div className="min-w-0">
-											<div className="flex items-center gap-2">
-												<span className="truncate font-medium text-foreground">
-													{l.full_name}
-												</span>
-												{isHigh && (
-													<Badge
-														variant="secondary"
-														className="py-0.5 text-[10px]"
-														style={{
-															background: "var(--color-brand-tint)",
-															color: "var(--color-brand)",
-														}}
+										<div
+											className={cn(
+												"grid grid-cols-[28px_28px_1fr_180px_140px_120px_140px_36px] items-center gap-4 px-4 py-3.5 text-sm transition-colors",
+												i < visibleIdx.length - 1 && !isOpen && "border-b",
+											)}
+										>
+											<button
+												type="button"
+												onClick={() => toggleExpand(idx)}
+												className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+												aria-label={isOpen ? "Collapse" : "Expand"}
+											>
+												{isOpen ? (
+													<CaretDown size={14} weight="bold" />
+												) : (
+													<CaretRight size={14} weight="bold" />
+												)}
+											</button>
+											<button
+												type="button"
+												onClick={() => isHigh && setActiveIdx(idx)}
+												className="grid h-5 w-5 place-items-center"
+												aria-label={isHigh ? "Open brief" : ""}
+											>
+												{isHigh ? (
+													<Star
+														size={14}
+														weight="fill"
+														color="var(--color-brand)"
+													/>
+												) : null}
+											</button>
+											<div className="min-w-0">
+												<div className="flex items-center gap-2">
+													<span className="truncate font-medium text-foreground">
+														{l.full_name}
+													</span>
+													{isHigh && (
+														<Badge
+															variant="secondary"
+															className="py-0.5 text-[10px]"
+															style={{
+																background: "var(--color-brand-tint)",
+																color: "var(--color-brand)",
+															}}
+														>
+															High profile
+														</Badge>
+													)}
+												</div>
+												<div className="mt-0.5 truncate text-[12px] text-muted-foreground">
+													{[l.job_title, l.seniority]
+														.filter(Boolean)
+														.join(" · ") || "—"}
+												</div>
+											</div>
+											<div className="min-w-0">
+												<div className="flex items-center gap-1.5 truncate text-[13px] text-foreground/80">
+													<Buildings size={12} />
+													<span className="truncate">
+														{l.company_name ?? "—"}
+													</span>
+												</div>
+												<div className="truncate text-[11px] text-muted-foreground">
+													{l.company_industry ?? l.company_domain ?? ""}
+												</div>
+											</div>
+											<span className="truncate text-[13px] text-muted-foreground">
+												{l.location ?? "—"}
+											</span>
+											<SourceBadge source={l.source} />
+											<div>
+												{!isHigh ? (
+													<ScheduleButton
+														state={sched}
+														onClick={() => scheduleOne(idx)}
+													/>
+												) : (
+													<Button
+														size="sm"
+														variant="outline"
+														className="gap-1.5"
+														onClick={() => setActiveIdx(idx)}
 													>
-														High profile
-													</Badge>
+														<Sparkle
+															size={12}
+															weight="fill"
+															color="var(--color-brand)"
+														/>
+														Brief
+													</Button>
 												)}
 											</div>
-											<div className="mt-0.5 truncate text-[12px] text-muted-foreground">
-												{[l.job_title, l.seniority]
-													.filter(Boolean)
-													.join(" · ") || "—"}
+											<div className="justify-self-end">
+												{l.linkedin_url ? (
+													<a
+														href={l.linkedin_url}
+														target="_blank"
+														rel="noreferrer"
+														onClick={(e) => e.stopPropagation()}
+														className="p-1.5 text-muted-foreground hover:text-foreground"
+													>
+														<LinkSimple size={14} weight="bold" />
+													</a>
+												) : null}
 											</div>
 										</div>
-										<div className="min-w-0">
-											<div className="flex items-center gap-1.5 truncate text-[13px] text-foreground/80">
-												<Buildings size={12} />
-												<span className="truncate">
-													{l.company_name ?? "—"}
-												</span>
-											</div>
-											<div className="truncate text-[11px] text-muted-foreground">
-												{l.company_industry ?? l.company_domain ?? ""}
-											</div>
-										</div>
-										<span className="truncate text-[13px] text-muted-foreground">
-											{l.location ?? "—"}
-										</span>
-										<SourceBadge source={l.source} />
-										<div className="justify-self-end">
-											{l.linkedin_url ? (
-												<a
-													href={l.linkedin_url}
-													target="_blank"
-													rel="noreferrer"
-													onClick={(e) => e.stopPropagation()}
-													className="p-1.5 text-muted-foreground hover:text-foreground"
-												>
-													<LinkSimple size={14} weight="bold" />
-												</a>
-											) : null}
-										</div>
-									</button>
+										{isOpen && (
+											<FoldedDetails lead={l} last={i === visibleIdx.length - 1} />
+										)}
+									</div>
 								);
 							})}
 						</>
@@ -336,7 +516,7 @@ function ResultsPage() {
 			</div>
 
 			<HighProfileDrawer
-				open={activeIdx !== null}
+				open={activeIdx !== null && (result.leads[activeIdx]?.high_profile ?? false)}
 				onOpenChange={(o) => !o && setActiveIdx(null)}
 				lead={activeLead}
 				flow={flow}
@@ -402,6 +582,179 @@ function SourceBadge({ source }: { source: "bettercontact" | "apollo" }) {
 			{label}
 		</Badge>
 	);
+}
+
+function ScheduleButton({
+	state,
+	onClick,
+}: {
+	state: ScheduleState;
+	onClick: () => void;
+}) {
+	const loading = state === "loading";
+	const done = state === "done";
+	const error = state === "error";
+	return (
+		<Button
+			size="sm"
+			variant={done ? "default" : "outline"}
+			disabled={loading}
+			onClick={onClick}
+			className={cn(
+				"min-w-[130px] gap-1.5 transition-colors",
+				done &&
+					"!bg-[#22A06B] !text-white hover:!bg-[#1B8557] !border-[#22A06B]",
+				error && "!border-destructive !text-destructive",
+			)}
+		>
+			{loading ? (
+				<>
+					<Spinner size={12} className="animate-spin" />
+					Scheduling…
+				</>
+			) : done ? (
+				<>
+					<Check size={12} weight="bold" />
+					Scheduled
+				</>
+			) : (
+				<>
+					<Phone size={12} weight="bold" />
+					Schedule call
+				</>
+			)}
+		</Button>
+	);
+}
+
+function GlobalScheduleButton({
+	state,
+	lowCount,
+	onClick,
+}: {
+	state: ScheduleState;
+	lowCount: number;
+	onClick: () => void;
+}) {
+	const loading = state === "loading";
+	const done = state === "done";
+	const error = state === "error";
+	if (lowCount === 0) return null;
+	return (
+		<Button
+			size="default"
+			variant={done ? "default" : "outline"}
+			disabled={loading}
+			onClick={onClick}
+			className={cn(
+				"gap-1.5 transition-colors",
+				done &&
+					"!bg-[#22A06B] !text-white hover:!bg-[#1B8557] !border-[#22A06B]",
+				error && "!border-destructive !text-destructive",
+			)}
+		>
+			{loading ? (
+				<>
+					<Spinner size={14} className="animate-spin" />
+					Scheduling {lowCount}…
+				</>
+			) : done ? (
+				<>
+					<Check size={14} weight="bold" />
+					All scheduled
+				</>
+			) : (
+				<>
+					<Phone size={14} weight="bold" />
+					Schedule {lowCount} call{lowCount === 1 ? "" : "s"}
+				</>
+			)}
+		</Button>
+	);
+}
+
+function FoldedDetails({ lead, last }: { lead: StoredLead; last: boolean }) {
+	// Pull every populated field out of the raw upstream payload so the
+	// recruiter can see what we actually have. Hide nullish, empty arrays,
+	// and obvious internal-only fields.
+	const raw = lead.raw ?? {};
+	const entries = Object.entries(raw)
+		.filter(([k, v]) => {
+			if (k.startsWith("_")) return false;
+			if (k === "raw") return false;
+			if (v === null || v === undefined) return false;
+			if (Array.isArray(v) && v.length === 0) return false;
+			if (typeof v === "string" && v.trim() === "") return false;
+			if (typeof v === "object") return Object.keys(v as object).length > 0;
+			return true;
+		})
+		.sort((a, b) => a[0].localeCompare(b[0]));
+
+	return (
+		<div
+			className={cn(
+				"grid grid-cols-1 gap-4 bg-muted/40 px-4 py-5 md:grid-cols-2",
+				!last && "border-b",
+			)}
+		>
+			<div className="md:col-span-2">
+				<div className="mb-2 flex items-center gap-2 text-[11px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
+					Full record
+					<span className="text-muted-foreground/70">
+						· {entries.length} fields
+					</span>
+				</div>
+				{entries.length === 0 && (
+					<div className="text-[13px] text-muted-foreground">
+						No additional fields available for this contact.
+					</div>
+				)}
+			</div>
+			{entries.map(([k, v]) => (
+				<div
+					key={k}
+					className="flex flex-col gap-1 rounded-lg border bg-card px-3 py-2"
+				>
+					<span className="text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+						{k.replace(/_/g, " ")}
+					</span>
+					<span className="break-words text-[13px] text-foreground">
+						{renderValue(v)}
+					</span>
+				</div>
+			))}
+		</div>
+	);
+}
+
+function renderValue(v: unknown): string {
+	if (v === null || v === undefined) return "—";
+	if (typeof v === "string") return v;
+	if (typeof v === "number" || typeof v === "boolean") return String(v);
+	if (Array.isArray(v)) return v.map(renderValue).join(", ");
+	if (typeof v === "object") {
+		try {
+			return JSON.stringify(v);
+		} catch {
+			return "[object]";
+		}
+	}
+	return String(v);
+}
+
+function describeResponse(res: unknown): string {
+	const r = res as { status?: number; body?: unknown; ms?: number };
+	const ms = typeof r.ms === "number" ? `${r.ms}ms` : "";
+	const status = r.status ? `${r.status}` : "";
+	let body = "";
+	if (typeof r.body === "string") body = r.body;
+	else if (r.body && typeof r.body === "object") {
+		const obj = r.body as Record<string, unknown>;
+		body = String(
+			obj.message ?? obj.body ?? obj.error ?? obj.detail ?? JSON.stringify(obj),
+		);
+	}
+	return [body, status, ms].filter(Boolean).join(" · ");
 }
 
 function HighProfileDrawer({
@@ -610,10 +963,6 @@ function csvCell(v: unknown): string {
 	return s;
 }
 
-// Translate the raw provider errors we get back from the action into a
-// short, actionable message for the user. This is what makes the
-// difference between "0 candidates ¯\_(ツ)_/¯" and "you're out of credits,
-// here's what to do".
 function classifyError(
 	r: StoredSearchResult,
 ): { title: string; body: string; hint?: string } | null {
@@ -632,7 +981,7 @@ function classifyError(
 			title: "Primary index is out of credits",
 			body:
 				"BetterContact returned an account-level error: the search couldn't run because the workspace ran out of credits.",
-			hint: "Top up the BetterContact plan to resume searches. The wider sweep alone won't return candidates while the primary index is unreachable.",
+			hint: "Top up the BetterContact plan to resume searches. The wider sweep alone won't return contacts while the primary index is unreachable.",
 		};
 	}
 	if (bcErr && /401|403|unauthor/i.test(bcErr)) {

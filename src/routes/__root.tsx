@@ -8,6 +8,7 @@ import type { ConvexReactClient } from 'convex/react';
 import type { ConvexQueryClient } from '@convex-dev/react-query';
 import { ThemeProvider } from '../components/layout/theme-provider';
 import { ModeProvider } from '../components/kiami/flow';
+import { Toaster } from '../components/ui/sonner';
 
 const fetchWorkosAuth = createServerFn({ method: 'GET' }).handler(async () => {
   try {
@@ -86,6 +87,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <ThemeProvider>
           <ModeProvider>
             {children}
+            <Toaster />
           </ModeProvider>
         </ThemeProvider>
         <Scripts />

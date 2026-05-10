@@ -10,6 +10,7 @@
 
 import type * as index from "../index.js";
 import type * as leads from "../leads.js";
+import type * as scheduleCall from "../scheduleCall.js";
 import type * as search from "../search.js";
 import type * as searchTypes from "../searchTypes.js";
 import type * as wrappers_apollo from "../wrappers/apollo.js";
@@ -27,6 +28,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   index: typeof index;
   leads: typeof leads;
+  scheduleCall: typeof scheduleCall;
   search: typeof search;
   searchTypes: typeof searchTypes;
   "wrappers/apollo": typeof wrappers_apollo;

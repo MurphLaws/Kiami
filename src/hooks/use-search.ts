@@ -27,6 +27,10 @@ export type StoredLead = {
 		why_they_fit: string;
 		suggested_opener: string;
 	};
+	// Full upstream payload (BC fields like contact_headline, company_about,
+	// etc.). Populated server-side on every search; the foldable card
+	// surfaces it.
+	raw?: Record<string, unknown>;
 };
 
 export type StoredSearchResult = {
@@ -82,4 +86,8 @@ export function loadResult(): StoredSearchResult | null {
 
 export function useRunSearch() {
 	return useAction(api.search.runSearch);
+}
+
+export function useScheduleCall() {
+	return useAction(api.scheduleCall.scheduleCall);
 }
