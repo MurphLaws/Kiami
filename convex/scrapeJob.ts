@@ -98,6 +98,19 @@ function normalizeUrl(raw: string): string | null {
 	try {
 		const u = new URL(withScheme);
 		if (!["http:", "https:"].includes(u.protocol)) return null;
+
+		// LinkedIn search-results URLs ship with `currentJobId=N` and are
+		// not crawlable by themselves — they're an SPA shell. Rewrite to
+		// the public guest job-view URL, which renders structured JD HTML.
+		if (
+			/(^|\.)linkedin\.com$/i.test(u.hostname) &&
+			/\/jobs\/search-results\/?/i.test(u.pathname)
+		) {
+			const id = u.searchParams.get("currentJobId");
+			if (id && /^\d+$/.test(id)) {
+				return `https://www.linkedin.com/jobs/view/${id}/`;
+			}
+		}
 		return u.toString();
 	} catch {
 		return null;

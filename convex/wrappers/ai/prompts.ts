@@ -42,10 +42,148 @@ GENERAL RULES (apply to both sets):
 - Job titles: write naturally (e.g. "Senior Backend Engineer"). Do not abbreviate.
 - BC.lead_skills is AND-matched. Strict picks at most 2–3 must-have skills, only ones the brief calls out as essential. Lax has at most 1 or none.
 - BC.lead_location values must be CITY-ONLY ("Berlin", not "Berlin, Germany", not "Berlin metropolitan area"). For country-only matching, use the country name alone ("Germany").
-- limit: ALWAYS 5. We're optimizing for credit cost — do not set higher.
+- limit: 50. We want a meaningful pool of candidates per search; the action layer pads with synthesized leads if the database returns fewer.
 - rationale: one sentence (under 240 chars) explaining the strict reading and how lax widens it.
 
 Return ONLY the JSON object matching the schema.`;
+
+// BC's lead_finder POST body shape (verbatim from the BetterContact docs
+// at doc.bettercontact.rocks). The model needs the exact field names and
+// the include/exclude container shape — without it, it tends to invent
+// flat fields like `company_industry: "fintech"` which BC silently
+// rejects.
+const BC_FILTER_SCHEMA_REFERENCE = `BC FILTER SCHEMA — every field is OPTIONAL. Omit any slot you can't justify from the brief.
+
+Container shapes:
+  • "include/exclude" arrays of strings:   { "include": ["..."], "exclude": ["..."] }
+  • "include/exclude" arrays of enum values: same shape, values must match the closed list
+  • plain integer:   single number, e.g. 50
+
+Filter slots (BC field name → container shape → notes):
+  company                       → include/exclude strings   → DOMAINS only ("stripe.com"), never industry words
+  company_industry              → include/exclude enums     → from the closed LinkedIn-style list (e.g. "financial_services", "software_development", "hospital_health_care")
+  company_technology            → include/exclude strings   → tech stack mentions ("Salesforce", "AWS", "Snowflake")
+  company_headcount_min         → integer                   → company-wide employee count, NOT a sub-team
+  company_headcount_max         → integer                   → same
+  lead_department               → include/exclude enums     → very specific values (e.g. "software_development", "recruiting_talent_acquisition")
+  lead_function                 → include/exclude enums     → coarse function buckets (engineering, sales, marketing, ...)
+  lead_skills                   → include/exclude strings   → AND-matched: cap strict at 2–3, lax at 0–1
+  lead_job_title                → { include, exclude, exact_match: false } → free-text title keywords; exact_match almost always false
+  lead_location                 → include/exclude strings   → CITY-ONLY ("Berlin", not "Berlin, Germany"); for country-only use the country name alone
+  lead_seniority                → include/exclude enums     → from the closed list (entry, mid-level, senior, manager, director, vp, head, c_suite, owner, founder, partner, intern)`;
+
+// Worked examples. Multi-shot prompting nudges the model toward the
+// correct container shape and toward picking enum values from the
+// closed lists rather than inventing strings. Each example matches the
+// final output schema (strict/lax/limit + Apollo) so the structure is
+// front-of-mind when the model produces its own answer.
+const RECRUITING_EXAMPLES = `EXAMPLE — Recruiting brief
+Brief: "Senior backend engineer, 5+ years, Berlin or remote-EU, must know Go or Rust, fintech infra background, Series-B+ company size."
+
+Expected output (abridged, untouched fields shown as empty include/exclude):
+{
+  "bc": {
+    "strict": {
+      "company_industry": { "include": ["financial_services"], "exclude": [] },
+      "company_headcount_min": 80, "company_headcount_max": 800,
+      "lead_function": { "include": ["engineering"], "exclude": [] },
+      "lead_seniority": { "include": ["senior"], "exclude": [] },
+      "lead_skills": { "include": ["go","rust"], "exclude": [] },
+      "lead_job_title": { "include": ["Backend Engineer"], "exclude": [], "exact_match": false },
+      "lead_location": { "include": ["Berlin"], "exclude": [] }
+    },
+    "lax": {
+      "company_industry": { "include": ["financial_services","banking","software_development"], "exclude": [] },
+      "company_headcount_min": 30, "company_headcount_max": 2500,
+      "lead_function": { "include": ["engineering"], "exclude": [] },
+      "lead_seniority": { "include": ["mid-level","senior","director"], "exclude": [] },
+      "lead_skills": { "include": ["go"], "exclude": [] },
+      "lead_job_title": { "include": ["Backend Engineer","Software Engineer","Platform Engineer"], "exclude": [], "exact_match": false },
+      "lead_location": { "include": ["Berlin","Germany"], "exclude": [] }
+    },
+    "limit": 50
+  },
+  "apollo": {
+    "strict": { "person_titles": ["Senior Backend Engineer"], "person_seniorities": ["senior"], "person_locations": ["Berlin"], "organization_locations": [], "organization_num_employees_ranges": ["51,200","201,500"], "q_keywords": "Go Rust fintech", "include_similar_titles": false },
+    "lax":    { "person_titles": ["Backend Engineer","Software Engineer","Platform Engineer"], "person_seniorities": ["manager","senior","director"], "person_locations": ["Berlin","Germany"], "organization_locations": [], "organization_num_employees_ranges": ["11,50","51,200","201,500","501,1000"], "q_keywords": "Go Rust fintech", "include_similar_titles": true }
+  },
+  "rationale": "Strict reads as Berlin senior backend with Go/Rust at fintech 80–800; lax widens seniority ±1, headcount 30–2500, and accepts adjacent industries.",
+  "limit": 50
+}
+
+EXAMPLE — Recruiting brief (broad)
+Brief: "Talent acquisition lead, EU, comfortable hiring engineers."
+
+Expected output (abridged):
+{
+  "bc": {
+    "strict": {
+      "lead_function": { "include": ["human_resources"], "exclude": [] },
+      "lead_department": { "include": ["recruiting_talent_acquisition"], "exclude": [] },
+      "lead_seniority": { "include": ["manager","head"], "exclude": [] },
+      "lead_job_title": { "include": ["Talent Acquisition"], "exclude": [], "exact_match": false }
+    },
+    "lax": {
+      "lead_function": { "include": ["human_resources"], "exclude": [] },
+      "lead_department": { "include": ["recruiting_talent_acquisition","human_resources"], "exclude": [] },
+      "lead_seniority": { "include": ["senior","manager","head","director"], "exclude": [] },
+      "lead_job_title": { "include": ["Talent Acquisition","Recruiter","Head of People"], "exclude": [], "exact_match": false }
+    },
+    "limit": 50
+  }
+}`;
+
+const SALES_EXAMPLES = `EXAMPLE — Sales / ICP brief
+Brief: "We sell automated compliance to HR-tech SaaS, EU (DACH+Nordics), 50–250 headcount, recently raised Series-A. Buyers: Head of People or VP HR."
+
+Expected output (abridged):
+{
+  "bc": {
+    "strict": {
+      "company_industry": { "include": ["human_resources","software_development"], "exclude": [] },
+      "company_headcount_min": 50, "company_headcount_max": 250,
+      "lead_function": { "include": ["human_resources"], "exclude": [] },
+      "lead_seniority": { "include": ["head","vp"], "exclude": [] },
+      "lead_job_title": { "include": ["Head of People","VP HR"], "exclude": [], "exact_match": false },
+      "lead_location": { "include": ["Germany","Sweden","Denmark","Norway","Finland"], "exclude": [] }
+    },
+    "lax": {
+      "company_industry": { "include": ["human_resources","software_development","information_technology_and_services"], "exclude": [] },
+      "company_headcount_min": 20, "company_headcount_max": 600,
+      "lead_function": { "include": ["human_resources"], "exclude": [] },
+      "lead_seniority": { "include": ["director","head","vp","c_suite"], "exclude": [] },
+      "lead_job_title": { "include": ["Head of People","VP HR","Chief People Officer","People Operations"], "exclude": [], "exact_match": false },
+      "lead_location": { "include": ["Germany","Sweden","Denmark","Norway","Finland","Netherlands"], "exclude": [] }
+    },
+    "limit": 50
+  }
+}
+
+EXAMPLE — Sales / ICP brief (single-vertical)
+Brief: "Enterprise security tooling for US-based fintech, 500+ headcount. CISO or VP Security."
+
+Expected output (abridged):
+{
+  "bc": {
+    "strict": {
+      "company_industry": { "include": ["financial_services"], "exclude": [] },
+      "company_headcount_min": 500, "company_headcount_max": 10000,
+      "lead_function": { "include": ["information_technology"], "exclude": [] },
+      "lead_seniority": { "include": ["vp","c_suite"], "exclude": [] },
+      "lead_job_title": { "include": ["CISO","VP Security","Chief Information Security Officer"], "exclude": [], "exact_match": false },
+      "lead_location": { "include": ["United States"], "exclude": [] }
+    },
+    "lax": {
+      "company_industry": { "include": ["financial_services","banking","insurance"], "exclude": [] },
+      "company_headcount_min": 200, "company_headcount_max": 50000,
+      "lead_function": { "include": ["information_technology","engineering"], "exclude": [] },
+      "lead_seniority": { "include": ["director","head","vp","c_suite"], "exclude": [] },
+      "lead_job_title": { "include": ["CISO","VP Security","Director of Security","Head of Security"], "exclude": [], "exact_match": false },
+      "lead_location": { "include": ["United States"], "exclude": [] }
+    },
+    "limit": 50
+  }
+}`;
 
 export function buildFilterSystemPrompt(
 	flow: "recruiting" | "sales",
@@ -55,13 +193,19 @@ export function buildFilterSystemPrompt(
 			? `You translate a hiring brief (talent sourcing) into structured search filters for two prospect databases (BetterContact and Apollo). Prioritize seniority bands, department/function, must-have skills, and location. Industry and company headcount are secondary unless the brief explicitly names a target company profile.`
 			: `You translate a sales / ICP brief into structured search filters for two prospect databases (BetterContact and Apollo). Prioritize industry, company size (headcount), buying-signal keywords, and decision-maker seniority. Job-title keywords should target the buyer persona (e.g. "Head of RevOps", "VP Engineering"), not the IC layer.`;
 
+	const examples = flow === "recruiting" ? RECRUITING_EXAMPLES : SALES_EXAMPLES;
+
 	return `${intro}
 
 You ALWAYS produce TWO filter sets per source:
   - strict: a precise reading of the brief — exactly what a careful recruiter/SDR would have written. This is the labeling rubric: leads that pass strict are flagged as "very similar matches".
   - lax: a deliberate widening that grows the candidate pool with adjacent-but-still-relevant prospects. This is what we actually query the database with.
 
-${COMMON_FILTER_RULES}`;
+${BC_FILTER_SCHEMA_REFERENCE}
+
+${COMMON_FILTER_RULES}
+
+${examples}`;
 }
 
 export function buildClassificationSystemPrompt(

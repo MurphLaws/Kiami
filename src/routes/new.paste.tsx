@@ -310,9 +310,6 @@ function UrlPanel({
 					<LinkedinLogo size={14} weight="fill" />
 					Paste a public job-listing URL
 				</div>
-				<span className="font-mono-display text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
-					LinkedIn · Greenhouse · Lever · Ashby
-				</span>
 			</div>
 			<div className="px-5 py-6">
 				<div className="flex items-center gap-2">

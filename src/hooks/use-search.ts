@@ -11,7 +11,7 @@ export type StoredBrief = {
 };
 
 export type StoredLead = {
-	source: "bettercontact" | "apollo";
+	source: "bettercontact" | "apollo" | "synthesized";
 	full_name: string;
 	job_title?: string;
 	seniority?: string;
@@ -21,6 +21,8 @@ export type StoredLead = {
 	company_industry?: string;
 	company_domain?: string;
 	company_headcount?: number | string;
+	email?: string;
+	phone?: string;
 	high_profile?: boolean;
 	match_strictness?: "strict" | "lax";
 	strict_misses?: number;

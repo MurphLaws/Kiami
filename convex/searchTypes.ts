@@ -1,7 +1,7 @@
 // Shared lead shape used by the search action and the brief generator.
 
 export type NormalizedLead = {
-	source: "bettercontact" | "apollo";
+	source: "bettercontact" | "apollo" | "synthesized";
 	full_name: string;
 	job_title?: string;
 	seniority?: string;
@@ -11,6 +11,11 @@ export type NormalizedLead = {
 	company_industry?: string;
 	company_domain?: string;
 	company_headcount?: number | string;
+	// Demo-only contact details. Generated server-side (deterministic
+	// from name + company domain) so the editorial fold has something to
+	// show without spending BC enrichment credits.
+	email?: string;
+	phone?: string;
 	high_profile?: boolean;
 	// Whether this lead also passes the strict reading of the brief
 	// (`strict`) or only the widened lax filters (`lax`). Set server-side

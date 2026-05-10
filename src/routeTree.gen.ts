@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResultsRouteImport } from './routes/results'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
@@ -23,6 +24,11 @@ import { Route as AuthenticatedAuthenticatedRouteImport } from './routes/_authen
 const ResultsRoute = ResultsRouteImport.update({
   id: '/results',
   path: '/results',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
   '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/results': typeof ResultsRoute
   '/authenticated': typeof AuthenticatedAuthenticatedRoute
   '/new/form': typeof NewFormRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
   '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/results': typeof ResultsRoute
   '/authenticated': typeof AuthenticatedAuthenticatedRoute
   '/new/form': typeof NewFormRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/callback': typeof CallbackRoute
   '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/results': typeof ResultsRoute
   '/_authenticated/authenticated': typeof AuthenticatedAuthenticatedRoute
   '/new/form': typeof NewFormRoute
@@ -112,6 +121,7 @@ export interface FileRouteTypes {
     | '/'
     | '/callback'
     | '/dashboard'
+    | '/login'
     | '/results'
     | '/authenticated'
     | '/new/form'
@@ -123,6 +133,7 @@ export interface FileRouteTypes {
     | '/'
     | '/callback'
     | '/dashboard'
+    | '/login'
     | '/results'
     | '/authenticated'
     | '/new/form'
@@ -135,6 +146,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/callback'
     | '/dashboard'
+    | '/login'
     | '/results'
     | '/_authenticated/authenticated'
     | '/new/form'
@@ -148,6 +160,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   CallbackRoute: typeof CallbackRoute
   DashboardRoute: typeof DashboardRoute
+  LoginRoute: typeof LoginRoute
   ResultsRoute: typeof ResultsRoute
   NewFormRoute: typeof NewFormRoute
   NewPasteRoute: typeof NewPasteRoute
@@ -162,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/results'
       fullPath: '/results'
       preLoaderRoute: typeof ResultsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -247,6 +267,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   CallbackRoute: CallbackRoute,
   DashboardRoute: DashboardRoute,
+  LoginRoute: LoginRoute,
   ResultsRoute: ResultsRoute,
   NewFormRoute: NewFormRoute,
   NewPasteRoute: NewPasteRoute,

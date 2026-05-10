@@ -110,6 +110,7 @@ function FormPage() {
 
 	const isReview = step === totalSteps;
 	const current = questions[step - 1];
+	const currentAnswered = !isReview && (answers[current.key] ?? "").trim().length > 0;
 
 	function setAnswer(key: string, value: string) {
 		setAnswers((a) => ({ ...a, [key]: value }));
@@ -126,6 +127,10 @@ function FormPage() {
 			handleRun();
 			return;
 		}
+		// Don't advance until the current question has an answer — otherwise
+		// pressing Continue (or Enter) on an empty field silently skipped to
+		// review and ran the search with an empty brief.
+		if (!currentAnswered) return;
 		setStep((s) => Math.min(totalSteps, s + 1));
 	}
 
@@ -171,7 +176,11 @@ function FormPage() {
 						{isReview ? (
 							<RunButton onClick={handleRun} />
 						) : (
-							<ArrowButton direction="continue" onClick={next} />
+							<ArrowButton
+								direction="continue"
+								disabled={!currentAnswered}
+								onClick={next}
+							/>
 						)}
 					</div>
 				</div>

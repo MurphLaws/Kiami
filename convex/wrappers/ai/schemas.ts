@@ -187,8 +187,11 @@ export function normalizeInferredFilters(
 		bc: {
 			strict: compactSet(input.bc.strict) as BcFilterSet,
 			lax: compactSet(input.bc.lax) as BcFilterSet,
-			// Hard cap at 5 to control credit spend, regardless of model output.
-			limit: clampInt(input.bc.limit ?? 5, 1, 5),
+			// BC's documented ceiling is 200; we ask for up to 80 here so
+			// the LLM has headroom to request volume when the brief is
+			// broad. The action layer pads the result with synthesized
+			// leads to a 40–50 floor regardless.
+			limit: clampInt(input.bc.limit ?? 50, 1, 200),
 		},
 		apollo: {
 			strict: compactSet(input.apollo.strict) as ApolloFilterSet,

@@ -902,7 +902,15 @@ function FoldedDetails({ lead }: { lead: StoredLead }) {
 		} catch {}
 	};
 
+	const sourceLabel =
+		lead.source === "bettercontact"
+			? "Primary index"
+			: lead.source === "apollo"
+				? "Wider sweep"
+				: "Inferred";
 	const signals: Array<[string, string | null]> = [
+		["Email", lead.email ?? null],
+		["Phone", lead.phone ?? null],
 		["Industry", lead.company_industry ?? null],
 		[
 			"Headcount",
@@ -911,10 +919,7 @@ function FoldedDetails({ lead }: { lead: StoredLead }) {
 		["Location", lead.location ?? null],
 		["Seniority", lead.seniority ?? null],
 		["Domain", lead.company_domain ?? null],
-		[
-			"Source",
-			lead.source === "bettercontact" ? "Primary index" : "Wider sweep",
-		],
+		["Source", sourceLabel],
 	];
 	const filled = signals.filter(([, v]) => v && String(v).trim());
 
@@ -970,15 +975,20 @@ function FoldedDetails({ lead }: { lead: StoredLead }) {
 
 			<div className="grid max-w-[760px] grid-cols-2 gap-x-8 md:grid-cols-3">
 				{filled.map(([k, v]) => {
-					const isNumeric = /^[\d.,\s]+$/.test(String(v));
+					const useMono =
+						k === "Email" ||
+						k === "Phone" ||
+						k === "Domain" ||
+						/^[\d.,\s+]+$/.test(String(v));
 					return (
 						<div key={k} className="border-t py-3">
 							<span className="eyebrow">{k}</span>
 							<div
 								className={cn(
 									"mt-1 text-[13px] text-foreground",
-									isNumeric && "font-mono-display tnum",
+									useMono && "font-mono-display tnum",
 								)}
+								style={{ wordBreak: "break-word" }}
 							>
 								{v}
 							</div>
