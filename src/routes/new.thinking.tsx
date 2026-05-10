@@ -111,7 +111,7 @@ function ThinkingPage() {
 					</div>
 					<p className="mt-3 text-[17px] text-muted-foreground">
 						Inferring criteria, then sweeping the index and the network
-						who they know. Usually 30–90 seconds.
+						who they know.
 					</p>
 					<div
 						className="mt-6 inline-flex items-center gap-1.5 rounded-full border bg-muted px-4 py-2 text-[13px]"
@@ -195,9 +195,6 @@ function Receipts({ step }: { step: number }) {
 						animation: `kiami-fade-up 600ms ease-out ${i * 0.15}s both`,
 					}}
 				>
-					<span className="pt-0.5 font-mono-display text-[11px] text-muted-foreground">
-						{`0:${String((i + 1) * 2).padStart(2, "0")}`}
-					</span>
 					<span
 						className="flex-1 text-[13px]"
 						style={{ color: "var(--color-ink-2)" }}

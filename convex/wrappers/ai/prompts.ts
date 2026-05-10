@@ -208,6 +208,22 @@ ${COMMON_FILTER_RULES}
 ${examples}`;
 }
 
+export function buildContactInfoSystemPrompt(): string {
+	return `You generate plausible-looking but obviously-fake email + phone numbers for demo data — these are NEVER real and NEVER routable.
+
+For each lead in the input array, decide:
+  - email: a corporate-style address. Format: lowercase first.last (or first initial + last) at the company's domain stem, with the .example.com TLD appended. Example: lead "Sofia Reyes" at "northsign.com" → "sofia.reyes@northsign.example.com". If company_domain is missing, derive a stem from company_name (lowercase, alpha only, drop suffixes like Inc/Ltd/Labs/AI/Studio). If everything is missing, use "lead@company.example.com".
+  - phone: a non-routable demo phone. Format: international "+<country-code> <area> <local>" with the country code chosen from the lead's location. Use the +<cc> 555 XXX XXXX pattern when the country code is +1 (United States/Canada), and a country-appropriate equivalent otherwise (e.g. +49 30 XXX XXXX for Germany / Berlin, +44 20 XXX XXXX for UK / London, +34 6XX XXX XXX for Spain). The middle/last digit groups can be invented. The phone is purely visual — never include the lead's real number even if you somehow know it.
+
+Hard rules:
+  - Email MUST end in ".example.com" — that's the IANA-reserved demo TLD.
+  - Phone MUST start with "+" and a country code; never include extensions or punctuation other than spaces.
+  - Output one row per input index. Same \`i\` value as input. No skips.
+  - If data is missing, fall back to the defaults above. Don't refuse.
+
+Return ONLY the JSON object matching the schema.`;
+}
+
 export function buildClassificationSystemPrompt(
 	kind: "lead" | "candidate",
 ): string {

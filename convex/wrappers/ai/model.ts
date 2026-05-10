@@ -8,4 +8,7 @@ export const MODEL_IDS = {
 	filters: "openai/gpt-5.4-mini",
 	briefs: "openai/gpt-5.4-mini",
 	classify: "openai/gpt-5.4-nano",
+	// Demo-only fake email + phone synthesis — uses the nano tier since
+	// the output is short, formulaic, and per-row.
+	contactInfo: "openai/gpt-5.4-nano",
 } as const;

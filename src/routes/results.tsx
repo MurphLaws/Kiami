@@ -31,7 +31,7 @@ export const Route = createFileRoute("/results")({
 });
 
 type SourceFilter = "all" | "primary" | "network" | "high";
-type ScheduleState = "idle" | "loading" | "error";
+type ScheduleState = "idle" | "loading" | "scheduled" | "error";
 
 /* Animates a number from 0 → `value` over 600ms when it first mounts.
    No deps; cleanup safe. Falls back to the value if reduced-motion is
@@ -115,12 +115,6 @@ function ResultsPage() {
 			if (!result) return;
 			const lead = result.leads[idx];
 			setScheduleByIdx((m) => ({ ...m, [idx]: "loading" }));
-			const clear = () =>
-				setScheduleByIdx((m) => {
-					const n = { ...m };
-					delete n[idx];
-					return n;
-				});
 			try {
 				const res = await scheduleCall({
 					full_name: lead.full_name,
@@ -135,7 +129,10 @@ function ResultsPage() {
 					toast.success(`Call scheduled for ${lead.full_name}`, {
 						description: message,
 					});
-					clear();
+					// Hold the row at the green "scheduled" state so the
+					// user has a visible record of which leads they've
+					// already booked. It never reverts on its own.
+					setScheduleByIdx((m) => ({ ...m, [idx]: "scheduled" }));
 				} else {
 					toast.error(`Couldn't schedule ${lead.full_name}`, {
 						description: message,
@@ -188,7 +185,7 @@ function ResultsPage() {
 					const { i, r: payload } = r.value;
 					const isOk = (payload as { ok?: boolean })?.ok !== false;
 					if (isOk) {
-						delete n[i];
+						n[i] = "scheduled";
 						ok++;
 					} else {
 						n[i] = "error";
@@ -203,7 +200,7 @@ function ResultsPage() {
 
 		if (fail === 0) {
 			toast.success(`Scheduled ${ok} call${ok === 1 ? "" : "s"}`);
-			setGlobalState("idle");
+			setGlobalState("scheduled");
 		} else {
 			toast.error(`Scheduled ${ok} of ${lowIdx.length}; ${fail} failed`);
 			setGlobalState("error");
@@ -593,7 +590,9 @@ function ScheduleButton({
 	onClick: () => void;
 }) {
 	const loading = state === "loading";
+	const scheduled = state === "scheduled";
 	const error = state === "error";
+	const green = loading || scheduled;
 	return (
 		<div className="relative inline-flex">
 			{loading && (
@@ -605,11 +604,11 @@ function ScheduleButton({
 			<Button
 				size="sm"
 				variant="outline"
-				disabled={loading}
+				disabled={loading || scheduled}
 				onClick={onClick}
 				className={cn(
 					"relative z-10 min-w-[130px] gap-1.5 transition-colors",
-					loading &&
+					green &&
 						"!bg-[#22A06B] !text-white hover:!bg-[#22A06B] !border-[#22A06B] disabled:opacity-100",
 					error && "!border-destructive !text-destructive",
 				)}
@@ -618,6 +617,11 @@ function ScheduleButton({
 					<>
 						<Spinner size={12} className="animate-spin" />
 						Scheduling…
+					</>
+				) : scheduled ? (
+					<>
+						<Check size={12} weight="bold" />
+						Scheduled
 					</>
 				) : (
 					<>
@@ -640,17 +644,19 @@ function GlobalScheduleButton({
 	onClick: () => void;
 }) {
 	const loading = state === "loading";
+	const scheduled = state === "scheduled";
 	const error = state === "error";
+	const green = loading || scheduled;
 	if (lowCount === 0) return null;
 	return (
 		<Button
 			size="default"
 			variant="outline"
-			disabled={loading}
+			disabled={loading || scheduled}
 			onClick={onClick}
 			className={cn(
 				"gap-1.5 transition-colors",
-				loading &&
+				green &&
 					"!bg-[#22A06B] !text-white hover:!bg-[#22A06B] !border-[#22A06B] disabled:opacity-100",
 				error && "!border-destructive !text-destructive",
 			)}
@@ -659,6 +665,11 @@ function GlobalScheduleButton({
 				<>
 					<Spinner size={14} className="animate-spin" />
 					Scheduling {lowCount}…
+				</>
+			) : scheduled ? (
+				<>
+					<Check size={14} weight="bold" />
+					Scheduled
 				</>
 			) : (
 				<>

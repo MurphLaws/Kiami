@@ -24,6 +24,7 @@ import {
 	classifyCandidates,
 	classifyLeads,
 	generateBriefs,
+	generateContactInfo,
 	generateLeadFilters,
 	generateRecruitingFilters,
 	pickHighProfile,
@@ -48,8 +49,8 @@ import {
 // looking suspiciously round.
 const BC_TARGET = 50;
 const APOLLO_FALLBACK_THRESHOLD = 30;
-const MIN_LEADS_LO = 40;
-const MIN_LEADS_HI = 50;
+const MIN_LEADS_LO = 50;
+const MIN_LEADS_HI = 60;
 // Up to this many strict-filter slots can fail before a lead is demoted
 // from high-profile to low-profile. Set to 2 so high_profile stays
 // "more affine than low" without requiring an exact match.
@@ -174,11 +175,24 @@ export const runSearch = action({
 			result.leads.push(...synthesized);
 		}
 
-		// --- Stamp every lead with deterministic fake email + phone ---
+		// --- Generate fake email + phone via LLM agent ---
 		// BC's lead_finder doesn't ship enrichment data on this tier and
-		// PII is stripped anyway. For the demo we want something to show
-		// in the editorial fold — generated from the lead's own name +
-		// company domain so it stays stable across re-renders.
+		// PII is stripped anyway. A nano-tier model produces plausible
+		// values (locale-appropriate phone country codes, name-derived
+		// local parts, .example.com TLD) per lead. If the call fails we
+		// fall back to the deterministic stamp so the fold never renders
+		// empty.
+		try {
+			const infos = await generateContactInfo({ leads: result.leads });
+			infos.forEach((info, idx) => {
+				const lead = result.leads[idx];
+				if (!lead) return;
+				if (!lead.email) lead.email = info.email;
+				if (!lead.phone) lead.phone = info.phone;
+			});
+		} catch (err) {
+			console.error("contactInfo agent failed, using fallback", err);
+		}
 		for (const lead of result.leads) {
 			if (!lead.email) lead.email = fakeEmail(lead);
 			if (!lead.phone) lead.phone = fakePhone(lead);
@@ -608,25 +622,39 @@ function computeTags(
 		.slice(0, 8);
 }
 
-// BetterContact has shipped at least four different field names for the
-// LinkedIn URL across plan tiers and API versions. Try each one, then
-// fall back to a heuristic scan of the raw payload for any *_linkedin*
-// key containing a linkedin.com URL. Returns undefined only when the
-// payload genuinely has nothing to offer.
+// BetterContact's documented field for the contact's LinkedIn URL is
+// `contact_linkedin_profile_url`, with `contact_linkedin_id` carrying
+// the slug separately. Older / alternate plan tiers occasionally ship
+// the URL under a different key, so we also try common variants and
+// fall back to a heuristic sweep on any *_linkedin* key whose value
+// looks like a URL or a slug. Returns undefined only when the payload
+// genuinely has nothing to offer.
 function extractLinkedIn(raw: Record<string, unknown>): string | undefined {
-	const KNOWN_KEYS = [
-		"contact_linkedin_url",
+	const URL_KEYS = [
 		"contact_linkedin_profile_url",
-		"contact_linkedin",
+		"contact_linkedin_url",
 		"contact_linkedin_profile",
-		"linkedin_url",
+		"contact_linkedin",
 		"linkedin_profile_url",
+		"linkedin_url",
 		"linkedin",
 	];
-	for (const k of KNOWN_KEYS) {
+	for (const k of URL_KEYS) {
 		const v = raw[k];
 		if (typeof v === "string" && /linkedin\.com\//i.test(v)) {
 			return normalizeLinkedInUrl(v);
+		}
+	}
+	// `contact_linkedin_id` is BC's documented slug field — turn it into
+	// the canonical /in/<slug> URL.
+	const SLUG_KEYS = ["contact_linkedin_id", "linkedin_id", "linkedin_slug"];
+	for (const k of SLUG_KEYS) {
+		const v = raw[k];
+		if (typeof v === "string" && v.trim()) {
+			const slug = v.trim().replace(/^\/+|\/+$/g, "");
+			if (/^[a-z0-9._-]{3,}$/i.test(slug)) {
+				return `https://www.linkedin.com/in/${slug}`;
+			}
 		}
 	}
 	// Heuristic sweep: any key with "linkedin" in the name whose value
@@ -637,8 +665,7 @@ function extractLinkedIn(raw: Record<string, unknown>): string | undefined {
 			return normalizeLinkedInUrl(v);
 		}
 	}
-	// Some payloads expose only a slug like `johndoe-12345`. If we have
-	// a slug-shaped field, build the canonical URL.
+	// Last-resort slug heuristic on any *_linkedin* key.
 	for (const [k, v] of Object.entries(raw)) {
 		if (!/linkedin/i.test(k)) continue;
 		if (typeof v === "string" && v.trim() && !/\s/.test(v)) {
