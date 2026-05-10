@@ -18,7 +18,6 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { KiamiLogo } from "@/components/kiami/logo";
-import { StatusPill, type Status } from "@/components/kiami/status-pill";
 import { useMode, flowLabel, type Flow } from "@/components/kiami/flow";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +29,6 @@ type Search = {
 	id: number;
 	name: string;
 	flow: Flow;
-	status: Status;
 	matches: number;
 	updated: string;
 	owner: string;
@@ -42,7 +40,6 @@ const SEARCHES: Search[] = [
 		id: 1,
 		name: "Senior backend · Berlin · fintech",
 		flow: "recruiting",
-		status: "running",
 		matches: 124,
 		updated: "3m ago",
 		owner: "Lena Marín",
@@ -52,7 +49,6 @@ const SEARCHES: Search[] = [
 		id: 2,
 		name: "Series-A HR-tech decision makers",
 		flow: "sales",
-		status: "running",
 		matches: 86,
 		updated: "12m ago",
 		owner: "Tomás Yamazaki",
@@ -62,7 +58,6 @@ const SEARCHES: Search[] = [
 		id: 3,
 		name: "Healthtech CFOs · post-Series-B",
 		flow: "sales",
-		status: "running",
 		matches: 58,
 		updated: "1h ago",
 		owner: "Jordan Mata",
@@ -72,7 +67,6 @@ const SEARCHES: Search[] = [
 		id: 4,
 		name: "Staff PM, marketplaces, EU remote",
 		flow: "recruiting",
-		status: "paused",
 		matches: 41,
 		updated: "Yesterday",
 		owner: "Rita Okafor",
@@ -82,7 +76,6 @@ const SEARCHES: Search[] = [
 		id: 5,
 		name: "VP Marketing — vertical SaaS, 100–500ee",
 		flow: "sales",
-		status: "running",
 		matches: 33,
 		updated: "4h ago",
 		owner: "Tomás Yamazaki",
@@ -92,7 +85,6 @@ const SEARCHES: Search[] = [
 		id: 6,
 		name: "iOS engineers · Latam · Spanish-fluent",
 		flow: "recruiting",
-		status: "draft",
 		matches: 0,
 		updated: "2d ago",
 		owner: "Ana Silva",
@@ -102,29 +94,22 @@ const SEARCHES: Search[] = [
 
 function DashboardPage() {
 	const { flow } = useMode();
-	const [tab, setTab] = useState<"all" | "running" | "drafts">("all");
 	const [empty, setEmpty] = useState(false);
 
 	const scoped = SEARCHES.filter((s) => s.flow === flow);
-	const tabbed =
-		tab === "all"
-			? scoped
-			: tab === "drafts"
-				? scoped.filter((s) => s.status === "draft")
-				: scoped.filter((s) => s.status === "running");
 
 	return (
 		<div className="flex min-h-screen bg-background">
 			<SideNav />
 			<main className="flex flex-1 flex-col bg-background">
 				<PageHeader />
-				{!empty && <Toolbar tab={tab} setTab={setTab} rows={scoped} />}
-				{empty || tabbed.length === 0 ? (
+				{!empty && <Toolbar />}
+				{empty || scoped.length === 0 ? (
 					<EmptyState onCreate={() => setEmpty(false)} />
 				) : (
 					<div className="flex-1 px-6 py-5">
-						<SearchTable rows={tabbed} />
-						<TableFooter total={tabbed.length} />
+						<SearchTable rows={scoped} />
+						<TableFooter total={scoped.length} />
 						<div className="mt-6">
 							<Button
 								variant="outline"
@@ -306,76 +291,29 @@ function PageHeader() {
 	);
 }
 
-function Toolbar({
-	tab,
-	setTab,
-	rows,
-}: {
-	tab: "all" | "running" | "drafts";
-	setTab: (v: "all" | "running" | "drafts") => void;
-	rows: Search[];
-}) {
-	const counts = {
-		all: rows.length,
-		running: rows.filter((r) => r.status === "running").length,
-		drafts: rows.filter((r) => r.status === "draft").length,
-	};
-	const tabs: Array<["all" | "running" | "drafts", string, number]> = [
-		["all", "All", counts.all],
-		["running", "Running", counts.running],
-		["drafts", "Drafts", counts.drafts],
-	];
+function Toolbar() {
 	return (
-		<div className="flex items-center justify-between gap-4 border-b bg-background px-6 py-2.5">
-			<div className="flex items-center gap-0.5">
-				{tabs.map(([id, label, n]) => {
-					const active = tab === id;
-					return (
-						<button
-							key={id}
-							onClick={() => setTab(id)}
-							className={cn(
-								"inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
-								active
-									? "bg-muted font-medium text-foreground"
-									: "text-muted-foreground hover:text-foreground",
-							)}
-						>
-							{label}
-							<span
-								className={cn(
-									"min-w-5 rounded px-1.5 text-center text-[11px]",
-									active ? "border bg-card" : "text-muted-foreground",
-								)}
-							>
-								{n}
-							</span>
-						</button>
-					);
-				})}
+		<div className="flex items-center justify-end gap-2 border-b bg-background px-6 py-2.5">
+			<div className="relative">
+				<MagnifyingGlass
+					size={13}
+					className="absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
+				/>
+				<Input
+					placeholder="Search…"
+					className="h-8 w-[220px] rounded-md pl-8 pr-12 text-[13px]"
+				/>
+				<span className="absolute top-1/2 right-2 -translate-y-1/2 rounded border bg-background px-1.5 py-0.5 font-mono-display text-[11px] text-muted-foreground">
+					⌘K
+				</span>
 			</div>
-			<div className="flex items-center gap-2">
-				<div className="relative">
-					<MagnifyingGlass
-						size={13}
-						className="absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
-					/>
-					<Input
-						placeholder="Search…"
-						className="h-8 w-[220px] rounded-md pl-8 pr-12 text-[13px]"
-					/>
-					<span className="absolute top-1/2 right-2 -translate-y-1/2 rounded border bg-background px-1.5 py-0.5 font-mono-display text-[11px] text-muted-foreground">
-						⌘K
-					</span>
-				</div>
-				<Button variant="outline" size="sm" className="gap-1.5">
-					<Gear size={13} />
-					Filter
-				</Button>
-				<Button variant="outline" size="sm" className="px-2">
-					<DotsThree size={14} weight="bold" />
-				</Button>
-			</div>
+			<Button variant="outline" size="sm" className="gap-1.5">
+				<Gear size={13} />
+				Filter
+			</Button>
+			<Button variant="outline" size="sm" className="px-2">
+				<DotsThree size={14} weight="bold" />
+			</Button>
 		</div>
 	);
 }
@@ -383,10 +321,9 @@ function Toolbar({
 function SearchTable({ rows }: { rows: Search[] }) {
 	return (
 		<div className="overflow-hidden rounded-lg border bg-card">
-			<div className="grid grid-cols-[24px_minmax(0,1fr)_110px_90px_130px_36px] items-center gap-4 border-b bg-muted px-4 py-2 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+			<div className="grid grid-cols-[24px_minmax(0,1fr)_90px_130px_36px] items-center gap-4 border-b bg-muted px-4 py-2 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
 				<span />
 				<span>Search</span>
-				<span>Status</span>
 				<span className="text-right">Matches</span>
 				<span>Updated</span>
 				<span />
@@ -395,7 +332,7 @@ function SearchTable({ rows }: { rows: Search[] }) {
 				<div
 					key={s.id}
 					className={cn(
-						"grid grid-cols-[24px_minmax(0,1fr)_110px_90px_130px_36px] items-center gap-4 px-4 py-3.5 text-sm transition-colors hover:bg-muted/50",
+						"grid grid-cols-[24px_minmax(0,1fr)_90px_130px_36px] items-center gap-4 px-4 py-3.5 text-sm transition-colors hover:bg-muted/50",
 						i < rows.length - 1 && "border-b",
 					)}
 				>
@@ -422,7 +359,6 @@ function SearchTable({ rows }: { rows: Search[] }) {
 							{s.owner}
 						</div>
 					</div>
-					<StatusPill status={s.status} />
 					<span
 						className={cn(
 							"text-right font-medium tabular-nums",

@@ -9,6 +9,7 @@ import {
 	LinkedinLogo,
 	Sparkle,
 	Star,
+	Warning,
 } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -77,6 +78,8 @@ function ResultsPage() {
 
 	const activeLead = activeIdx !== null ? result.leads[activeIdx] : null;
 
+	const fatal = classifyError(result);
+
 	return (
 		<div className="min-h-screen bg-muted">
 			<FocusedHeader />
@@ -90,6 +93,30 @@ function ResultsPage() {
 						Run another search
 					</Link>
 				</div>
+
+				{fatal && (
+					<div
+						className="mb-6 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4"
+						role="alert"
+					>
+						<Warning
+							size={18}
+							weight="fill"
+							className="mt-0.5 shrink-0 text-destructive"
+						/>
+						<div className="flex-1">
+							<div className="font-medium text-foreground">{fatal.title}</div>
+							<p className="mt-1 text-[14px] leading-snug text-muted-foreground">
+								{fatal.body}
+							</p>
+							{fatal.hint && (
+								<div className="mt-2 text-[12px] text-muted-foreground">
+									{fatal.hint}
+								</div>
+							)}
+						</div>
+					</div>
+				)}
 
 				<div className="mb-7 flex flex-wrap items-start justify-between gap-4">
 					<div>
@@ -581,4 +608,58 @@ function csvCell(v: unknown): string {
 	const s = String(v);
 	if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
 	return s;
+}
+
+// Translate the raw provider errors we get back from the action into a
+// short, actionable message for the user. This is what makes the
+// difference between "0 candidates ¯\_(ツ)_/¯" and "you're out of credits,
+// here's what to do".
+function classifyError(
+	r: StoredSearchResult,
+): { title: string; body: string; hint?: string } | null {
+	const bcErr = r.bc.error ?? "";
+	const apolloErr = r.apollo.error ?? "";
+	const total = r.leads.length;
+
+	const outOfCredits =
+		/402|tokens|credits|insufficient|not enough/i.test(bcErr);
+	const apolloPlanIssue = /403|api_key on a free plan|inaccessible/i.test(
+		apolloErr,
+	);
+
+	if (outOfCredits) {
+		return {
+			title: "Primary index is out of credits",
+			body:
+				"BetterContact returned an account-level error: the search couldn't run because the workspace ran out of credits.",
+			hint: "Top up the BetterContact plan to resume searches. The wider sweep alone won't return candidates while the primary index is unreachable.",
+		};
+	}
+	if (bcErr && /401|403|unauthor/i.test(bcErr)) {
+		return {
+			title: "Primary index credentials rejected",
+			body: "BetterContact returned a 401/403. Check the API key and account status.",
+		};
+	}
+	if (bcErr && /429/i.test(bcErr)) {
+		return {
+			title: "Rate-limited",
+			body: "Too many searches in the last minute. Wait ~60 seconds and retry.",
+		};
+	}
+	if (total === 0 && bcErr) {
+		return {
+			title: "Search couldn't complete",
+			body: bcErr,
+		};
+	}
+	if (total === 0 && apolloPlanIssue && (r.bc.leads_found ?? 0) === 0) {
+		return {
+			title: "No matches",
+			body:
+				"The primary index returned no matches and the wider sweep is gated behind a paid plan, so nothing came back.",
+			hint: "Try widening the brief — fewer must-haves, broader geography, or a more common job title.",
+		};
+	}
+	return null;
 }
