@@ -706,7 +706,6 @@ function EditorialRow({
 		.slice(0, 2)
 		.map((s) => s[0]?.toUpperCase() ?? "")
 		.join("");
-	const tag = leadRowTag(lead);
 	const tags = lead.tags ?? [];
 	const visibleTags = tags.slice(0, 5);
 	const hiddenTagCount = tags.length - visibleTags.length;
@@ -725,7 +724,7 @@ function EditorialRow({
 					style={{ background: "var(--color-brand)" }}
 				/>
 			)}
-			<div className="grid grid-cols-[36px_minmax(0,1.6fr)_minmax(0,1fr)_120px_120px_150px_28px] items-center gap-4 px-4 py-3.5 transition-colors hover:bg-muted/40">
+			<div className="grid grid-cols-[36px_minmax(0,1.6fr)_minmax(0,1fr)_120px_150px_28px] items-center gap-4 px-4 py-3.5 transition-colors hover:bg-muted/40">
 				{/* Avatar */}
 				<button
 					type="button"
@@ -828,9 +827,6 @@ function EditorialRow({
 					</div>
 				</button>
 
-				{/* Classification dot + tag */}
-				<div>{tag && <RowTag tag={tag} />}</div>
-
 				{/* LinkedIn — prominent button per the user's ask */}
 				<div>
 					{lead.linkedin_url ? (
@@ -879,49 +875,6 @@ function EditorialRow({
 			</div>
 
 			{expanded && <FoldedDetails lead={lead} />}
-		</div>
-	);
-}
-
-type RowTagShape = { label: string; tone: "hot" | "warm" | "cold" | "neutral" };
-
-function leadRowTag(lead: StoredLead): RowTagShape | null {
-	if (!lead.classification) {
-		if (lead.match_strictness === "strict") {
-			return { label: "Strict match", tone: "warm" };
-		}
-		if (lead.match_strictness === "lax") {
-			return { label: "Adjacent fit", tone: "neutral" };
-		}
-		return lead.source === "bettercontact"
-			? { label: "Primary", tone: "warm" }
-			: { label: "Wider sweep", tone: "neutral" };
-	}
-	if (lead.classification.kind === "lead") {
-		return { label: lead.classification.tier, tone: lead.classification.tier };
-	}
-	const rec = lead.classification.recommendation;
-	const tone: RowTagShape["tone"] =
-		rec === "shortlist" ? "hot" : rec === "screen" ? "warm" : "cold";
-	return { label: rec, tone };
-}
-
-function RowTag({ tag }: { tag: RowTagShape }) {
-	const dot =
-		tag.tone === "hot"
-			? "var(--color-brand)"
-			: tag.tone === "warm"
-				? "#9DC2FF"
-				: tag.tone === "cold"
-					? "var(--color-border-strong)"
-					: "var(--color-border-strong)";
-	return (
-		<div className="inline-flex items-center gap-2 text-[12px] text-muted-foreground">
-			<span
-				className="inline-block h-1.5 w-1.5 rounded-full"
-				style={{ background: dot }}
-			/>
-			<span className="capitalize">{tag.label}</span>
 		</div>
 	);
 }
