@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
 	MagnifyingGlass,
 	Plus,
@@ -8,8 +9,9 @@ import {
 	Database,
 	GitBranch,
 	Sparkle,
+	SidebarSimple,
 } from "@phosphor-icons/react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { KiamiLogo } from "@/components/kiami/logo";
 import { useMode, type Flow } from "@/components/kiami/flow";
@@ -19,13 +21,33 @@ export const Route = createFileRoute("/dashboard")({
 	component: DashboardPage,
 });
 
+const SIDENAV_KEY = "kiami:sidenavCollapsed";
+
 function DashboardPage() {
 	const { flow, setFlow } = useMode();
 	const isRecruiting = flow === "recruiting";
 
+	// Default to collapsed; only show the nav if the user has explicitly
+	// expanded it on this device.
+	const [collapsed, setCollapsed] = useState(true);
+	useEffect(() => {
+		try {
+			setCollapsed(localStorage.getItem(SIDENAV_KEY) !== "0");
+		} catch {}
+	}, []);
+	const toggle = () => {
+		setCollapsed((c) => {
+			const n = !c;
+			try {
+				localStorage.setItem(SIDENAV_KEY, n ? "1" : "0");
+			} catch {}
+			return n;
+		});
+	};
+
 	return (
 		<div className="flex min-h-screen bg-background">
-			<SideNav />
+			<SideNav collapsed={collapsed} onToggle={toggle} />
 			<main
 				className={cn(
 					"relative flex flex-1 flex-col overflow-hidden transition-colors duration-500",
@@ -34,6 +56,21 @@ function DashboardPage() {
 						: "bg-white text-[var(--color-brand)]",
 				)}
 			>
+				{collapsed && (
+					<button
+						type="button"
+						onClick={toggle}
+						aria-label="Show sidebar"
+						className={cn(
+							"absolute top-4 left-4 z-20 grid h-9 w-9 place-items-center rounded-md backdrop-blur-sm transition-colors",
+							isRecruiting
+								? "bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30"
+								: "bg-white text-[var(--color-brand)] hover:bg-[var(--color-brand-tint)] ring-1 ring-[var(--color-brand)]/20",
+						)}
+					>
+						<SidebarSimple size={16} weight="bold" />
+					</button>
+				)}
 				<TopBar value={flow} onChange={setFlow} />
 				<div
 					key={flow}
@@ -51,7 +88,13 @@ function DashboardPage() {
 	);
 }
 
-function SideNav() {
+function SideNav({
+	collapsed,
+	onToggle,
+}: {
+	collapsed: boolean;
+	onToggle: () => void;
+}) {
 	const items: Array<
 		[string, string, React.ComponentType<{ size?: number }>, string?]
 	> = [
@@ -61,12 +104,29 @@ function SideNav() {
 		["integrations", "Integrations", GitBranch],
 	];
 	return (
-		<aside className="flex w-[232px] flex-col border-r bg-muted">
+		<aside
+			className={cn(
+				"flex shrink-0 flex-col overflow-hidden border-r bg-muted transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+				collapsed ? "w-0 border-r-0" : "w-[232px]",
+			)}
+			aria-hidden={collapsed}
+		>
+			<div className="flex h-full w-[232px] flex-1 flex-col">
 			<div className="flex items-center justify-between px-4 py-3.5">
 				<KiamiLogo size={18} />
-				<button className="p-1 text-muted-foreground hover:text-foreground">
-					<Gear size={14} />
-				</button>
+				<div className="flex items-center gap-1">
+					<button
+						type="button"
+						onClick={onToggle}
+						aria-label="Hide sidebar"
+						className="p-1 text-muted-foreground hover:text-foreground"
+					>
+						<SidebarSimple size={14} weight="bold" />
+					</button>
+					<button className="p-1 text-muted-foreground hover:text-foreground">
+						<Gear size={14} />
+					</button>
+				</div>
 			</div>
 
 			<div className="px-2.5 pb-2.5">
@@ -119,6 +179,7 @@ function SideNav() {
 						Northwind Workspace
 					</div>
 				</div>
+			</div>
 			</div>
 		</aside>
 	);
