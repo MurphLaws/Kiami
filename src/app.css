@@ -83,10 +83,28 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* Kiami brand */
-  --color-brand: #1E5BFF;
-  --color-brand-2: #1244D9;
-  --color-brand-tint: #EAF0FF;
+  /* Kiami brand — Cobalt + Sky palette */
+  --color-cobalt: #1F5BFF;
+  --color-deep: #1E3FA8;
+  --color-sky: #9DC2FF;
+  --color-mist: #EAF1FF;
+  --color-paper: #FFFFFF;
+  --color-ink: #0B1B3A;
+  --color-slate: #5A6B8A;
+  --color-hairline: #E5E7EB;
+
+  /* Legacy brand aliases — same values as above, kept so existing
+     callsites (var(--color-brand) etc.) keep working unmodified. */
+  --color-brand: var(--color-cobalt);
+  --color-brand-2: var(--color-deep);
+  --color-brand-tint: var(--color-mist);
+  --color-ink-strong: var(--color-ink);
+  --color-ink-2: var(--color-ink);
+  --color-muted-2: var(--color-slate);
+  --color-border-strong: var(--color-hairline);
+
+  /* Off-demo-path accent tones — kept for components that still
+     reference peach/coral/lavender/moss until they get rethemed. */
   --color-peach: #FFE4D6;
   --color-peach-ink: #B25433;
   --color-peach-icon: #FF7A4D;
@@ -97,10 +115,6 @@
   --color-lavender-ink: #5B47A8;
   --color-moss: #E0F1D7;
   --color-moss-ink: #3F6B26;
-  --color-ink-strong: #0B1220;
-  --color-ink-2: #1B2333;
-  --color-muted-2: #8893A6;
-  --color-border-strong: #CCD3DD;
 }
 
 body {
