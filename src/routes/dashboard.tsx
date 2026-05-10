@@ -1,134 +1,60 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
 import {
 	MagnifyingGlass,
 	Plus,
 	Gear,
-	Export,
 	List as ListIcon,
 	Tray,
 	Database,
 	GitBranch,
-	DotsThree,
 	Sparkle,
-	Users,
-	Target,
 } from "@phosphor-icons/react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { KiamiLogo } from "@/components/kiami/logo";
-import { useMode, flowLabel, type Flow } from "@/components/kiami/flow";
+import { useMode, type Flow } from "@/components/kiami/flow";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard")({
 	component: DashboardPage,
 });
 
-type Search = {
-	id: number;
-	name: string;
-	flow: Flow;
-	matches: number;
-	updated: string;
-	owner: string;
-	initials: string;
-};
-
-const SEARCHES: Search[] = [
-	{
-		id: 1,
-		name: "Senior backend · Berlin · fintech",
-		flow: "recruiting",
-		matches: 124,
-		updated: "3m ago",
-		owner: "Lena Marín",
-		initials: "LM",
-	},
-	{
-		id: 2,
-		name: "Series-A HR-tech decision makers",
-		flow: "sales",
-		matches: 86,
-		updated: "12m ago",
-		owner: "Tomás Yamazaki",
-		initials: "TY",
-	},
-	{
-		id: 3,
-		name: "Healthtech CFOs · post-Series-B",
-		flow: "sales",
-		matches: 58,
-		updated: "1h ago",
-		owner: "Jordan Mata",
-		initials: "JM",
-	},
-	{
-		id: 4,
-		name: "Staff PM, marketplaces, EU remote",
-		flow: "recruiting",
-		matches: 41,
-		updated: "Yesterday",
-		owner: "Rita Okafor",
-		initials: "RO",
-	},
-	{
-		id: 5,
-		name: "VP Marketing — vertical SaaS, 100–500ee",
-		flow: "sales",
-		matches: 33,
-		updated: "4h ago",
-		owner: "Tomás Yamazaki",
-		initials: "TY",
-	},
-	{
-		id: 6,
-		name: "iOS engineers · Latam · Spanish-fluent",
-		flow: "recruiting",
-		matches: 0,
-		updated: "2d ago",
-		owner: "Ana Silva",
-		initials: "AS",
-	},
-];
-
 function DashboardPage() {
-	const { flow } = useMode();
-	const [empty, setEmpty] = useState(false);
-
-	const scoped = SEARCHES.filter((s) => s.flow === flow);
+	const { flow, setFlow } = useMode();
+	const isRecruiting = flow === "recruiting";
 
 	return (
 		<div className="flex min-h-screen bg-background">
 			<SideNav />
-			<main className="flex flex-1 flex-col bg-background">
-				<PageHeader />
-				{!empty && <Toolbar />}
-				{empty || scoped.length === 0 ? (
-					<EmptyState onCreate={() => setEmpty(false)} />
-				) : (
-					<div className="flex-1 px-6 py-5">
-						<SearchTable rows={scoped} />
-						<TableFooter total={scoped.length} />
-						<div className="mt-6">
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setEmpty(true)}
-							>
-								Show empty state
-							</Button>
-						</div>
-					</div>
+			<main
+				className={cn(
+					"relative flex flex-1 flex-col overflow-hidden transition-colors duration-500",
+					isRecruiting
+						? "bg-[var(--color-brand)] text-white"
+						: "bg-white text-[var(--color-brand)]",
 				)}
+			>
+				<TopBar value={flow} onChange={setFlow} />
+				<div
+					key={flow}
+					className={cn(
+						"flex flex-1 flex-col",
+						isRecruiting
+							? "kiami-slide-from-left"
+							: "kiami-slide-from-right",
+					)}
+				>
+					<EmptyState flow={flow} />
+				</div>
 			</main>
 		</div>
 	);
 }
 
 function SideNav() {
-	const { flow, setFlow } = useMode();
-	const items: Array<[string, string, React.ComponentType<{ size?: number }>, string?]> = [
+	const items: Array<
+		[string, string, React.ComponentType<{ size?: number }>, string?]
+	> = [
 		["searches", "Searches", ListIcon],
 		["inbox", "Inbox", Tray, "3"],
 		["accounts", "Accounts", Database],
@@ -141,10 +67,6 @@ function SideNav() {
 				<button className="p-1 text-muted-foreground hover:text-foreground">
 					<Gear size={14} />
 				</button>
-			</div>
-
-			<div className="px-2.5 pb-2">
-				<ModeSwitcher value={flow} onChange={setFlow} />
 			</div>
 
 			<div className="px-2.5 pb-2.5">
@@ -202,86 +124,35 @@ function SideNav() {
 	);
 }
 
-function ModeSwitcher({
+function TopBar({
 	value,
 	onChange,
 }: {
 	value: Flow;
 	onChange: (f: Flow) => void;
 }) {
-	const opts: Array<{
-		id: Flow;
-		label: string;
-		Icon: React.ComponentType<{
-			size?: number;
-			weight?: "regular" | "fill";
-			color?: string;
-		}>;
-		tone: string;
-	}> = [
-		{
-			id: "recruiting",
-			label: "Recruiting",
-			Icon: Users,
-			tone: "var(--color-peach-icon)",
-		},
-		{
-			id: "sales",
-			label: "Lead Finder",
-			Icon: Target,
-			tone: "var(--color-coral-icon)",
-		},
-	];
 	return (
-		<div className="grid grid-cols-2 gap-1 rounded-lg border bg-card p-1">
-			{opts.map((o) => {
-				const active = value === o.id;
-				return (
-					<button
-						key={o.id}
-						type="button"
-						onClick={() => onChange(o.id)}
-						className={cn(
-							"flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12px] font-medium transition-colors",
-							active
-								? "bg-muted text-foreground shadow-xs"
-								: "text-muted-foreground hover:text-foreground",
-						)}
-					>
-						<o.Icon
-							size={12}
-							weight={active ? "fill" : "regular"}
-							color={active ? o.tone : undefined}
-						/>
-						{o.label}
-					</button>
-				);
-			})}
-		</div>
-	);
-}
-
-function PageHeader() {
-	const { flow } = useMode();
-	return (
-		<div className="flex items-center justify-between border-b bg-background px-6 py-3.5">
-			<div className="flex items-center gap-2 text-sm text-muted-foreground">
-				<ListIcon size={14} />
-				<span>Searches</span>
-				<span>/</span>
-				<span className="font-medium text-foreground">
-					{flowLabel(flow)}
-				</span>
+		<div
+			className={cn(
+				"relative flex items-center justify-between border-b px-6 py-4 transition-colors duration-500",
+				value === "recruiting"
+					? "border-white/15 bg-[var(--color-brand-2)]/30"
+					: "border-[var(--color-brand)]/15 bg-[var(--color-brand-tint)]/40",
+			)}
+		>
+			<div className="w-[160px]" />
+			<div className="absolute left-1/2 -translate-x-1/2">
+				<ModeSwitch value={value} onChange={onChange} />
 			</div>
-			<div className="flex items-center gap-1.5">
-				<Button variant="ghost" size="sm" className="gap-1.5">
-					<Export size={14} />
-					Export
-				</Button>
-				<span className="h-4 w-px bg-border" />
+			<div className="flex w-[160px] items-center justify-end gap-1.5">
 				<Link
 					to="/new"
-					className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
+					className={cn(
+						"inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
+						value === "recruiting"
+							? "border-white/30 bg-white/10 text-white hover:bg-white/15"
+							: "border-[var(--color-brand)]/25 bg-white text-[var(--color-brand)] hover:bg-[var(--color-brand-tint)]",
+					)}
 				>
 					<Plus size={14} weight="bold" />
 					New search
@@ -291,113 +162,64 @@ function PageHeader() {
 	);
 }
 
-function Toolbar() {
+function ModeSwitch({
+	value,
+	onChange,
+}: {
+	value: Flow;
+	onChange: (f: Flow) => void;
+}) {
+	const isRecruiting = value === "recruiting";
 	return (
-		<div className="flex items-center justify-end gap-2 border-b bg-background px-6 py-2.5">
-			<div className="relative">
-				<MagnifyingGlass
-					size={13}
-					className="absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
-				/>
-				<Input
-					placeholder="Search…"
-					className="h-8 w-[220px] rounded-md pl-8 pr-12 text-[13px]"
-				/>
-				<span className="absolute top-1/2 right-2 -translate-y-1/2 rounded border bg-background px-1.5 py-0.5 font-mono-display text-[11px] text-muted-foreground">
-					⌘K
-				</span>
-			</div>
-			<Button variant="outline" size="sm" className="gap-1.5">
-				<Gear size={13} />
-				Filter
-			</Button>
-			<Button variant="outline" size="sm" className="px-2">
-				<DotsThree size={14} weight="bold" />
-			</Button>
+		<div
+			className={cn(
+				"relative inline-grid h-10 grid-cols-2 items-center rounded-full p-1 transition-colors duration-500",
+				isRecruiting
+					? "bg-white/15 ring-1 ring-white/30"
+					: "bg-[var(--color-brand-tint)] ring-1 ring-[var(--color-brand)]/20",
+			)}
+			style={{ width: 280 }}
+		>
+			<span
+				aria-hidden
+				className={cn(
+					"pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+					isRecruiting
+						? "translate-x-0 bg-white shadow-md"
+						: "translate-x-full bg-[var(--color-brand)] shadow-md",
+				)}
+			/>
+			<button
+				type="button"
+				onClick={() => onChange("recruiting")}
+				className={cn(
+					"relative z-10 rounded-full px-4 text-sm font-semibold transition-colors duration-300",
+					isRecruiting
+						? "text-[var(--color-brand)]"
+						: "text-[var(--color-brand)]/70 hover:text-[var(--color-brand)]",
+				)}
+			>
+				Recruiting
+			</button>
+			<button
+				type="button"
+				onClick={() => onChange("sales")}
+				className={cn(
+					"relative z-10 rounded-full px-4 text-sm font-semibold transition-colors duration-300",
+					!isRecruiting
+						? "text-white"
+						: "text-white/80 hover:text-white",
+				)}
+			>
+				Leads
+			</button>
 		</div>
 	);
 }
 
-function SearchTable({ rows }: { rows: Search[] }) {
-	return (
-		<div className="overflow-hidden rounded-lg border bg-card">
-			<div className="grid grid-cols-[24px_minmax(0,1fr)_90px_130px_36px] items-center gap-4 border-b bg-muted px-4 py-2 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-				<span />
-				<span>Search</span>
-				<span className="text-right">Matches</span>
-				<span>Updated</span>
-				<span />
-			</div>
-			{rows.map((s, i) => (
-				<div
-					key={s.id}
-					className={cn(
-						"grid grid-cols-[24px_minmax(0,1fr)_90px_130px_36px] items-center gap-4 px-4 py-3.5 text-sm transition-colors hover:bg-muted/50",
-						i < rows.length - 1 && "border-b",
-					)}
-				>
-					<span
-						className="h-1.5 w-1.5 rounded-full"
-						style={{
-							background:
-								s.flow === "recruiting"
-									? "var(--color-peach-icon)"
-									: "var(--color-coral-icon)",
-						}}
-					/>
-					<div className="min-w-0">
-						<div className="truncate font-medium text-foreground">
-							{s.name}
-						</div>
-						<div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted-foreground">
-							<span
-								className="inline-grid h-4 w-4 place-items-center rounded-full bg-muted text-[9px] font-semibold text-foreground/80"
-								style={{ background: "var(--color-brand-tint)" }}
-							>
-								{s.initials}
-							</span>
-							{s.owner}
-						</div>
-					</div>
-					<span
-						className={cn(
-							"text-right font-medium tabular-nums",
-							s.matches ? "text-foreground" : "text-muted-foreground",
-						)}
-					>
-						{s.matches || "—"}
-					</span>
-					<span className="text-[13px] text-muted-foreground">
-						{s.updated}
-					</span>
-					<button className="justify-self-end p-1.5 text-muted-foreground hover:text-foreground">
-						<DotsThree size={16} weight="bold" />
-					</button>
-				</div>
-			))}
-		</div>
-	);
-}
-
-function TableFooter({ total }: { total: number }) {
-	return (
-		<div className="flex items-center justify-between px-1 py-3 text-[12px] text-muted-foreground">
-			<span>
-				Showing {total} of {total}
-			</span>
-			<div className="flex items-center gap-1">
-				<button className="px-2 py-1 hover:text-foreground">‹</button>
-				<span>1 / 1</span>
-				<button className="px-2 py-1 hover:text-foreground">›</button>
-			</div>
-		</div>
-	);
-}
-
-function EmptyState({ onCreate }: { onCreate: () => void }) {
-	const { flow } = useMode();
-	const isRec = flow === "recruiting";
-	const examples = isRec
+function EmptyState({ flow }: { flow: Flow }) {
+	const isRecruiting = flow === "recruiting";
+	const examples = isRecruiting
 		? [
 				"Senior backend in Berlin",
 				"Staff PM · EU remote",
@@ -411,39 +233,61 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 	return (
 		<div className="grid flex-1 place-items-center px-6 py-10">
-			<div className="max-w-[420px] text-center">
+			<div className="max-w-[460px] text-center">
 				<div
-					className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl"
-					style={{
-						background: "var(--color-brand-tint)",
-						color: "var(--color-brand)",
-					}}
+					className={cn(
+						"mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl transition-colors duration-500",
+						isRecruiting
+							? "bg-white/15 text-white ring-1 ring-white/25"
+							: "bg-[var(--color-brand-tint)] text-[var(--color-brand)] ring-1 ring-[var(--color-brand)]/15",
+					)}
 				>
-					<MagnifyingGlass size={22} />
+					<MagnifyingGlass size={26} weight="regular" />
 				</div>
-				<h2 className="mb-2 font-heading text-[32px] font-semibold leading-tight tracking-tight">
-					No {flowLabel(flow).toLowerCase()} searches yet
+				<h2 className="mb-3 font-heading text-[36px] font-semibold leading-tight tracking-tight">
+					{isRecruiting
+						? "Find your next great hire"
+						: "Find your next customer"}
 				</h2>
-				<p className="mx-auto mb-5 max-w-[340px] text-[15px] text-muted-foreground">
+				<p
+					className={cn(
+						"mx-auto mb-6 max-w-[380px] text-[15px] leading-snug",
+						isRecruiting ? "text-white/80" : "text-[var(--color-brand)]/75",
+					)}
+				>
 					Describe who you're looking for in plain English — Kiami builds the
 					filters and runs the search for you.
 				</p>
-				<div className="flex justify-center gap-2">
-					<Link to="/new" className={cn(buttonVariants(), "gap-1.5")}>
-						<Plus size={14} weight="bold" />
-						New search
-					</Link>
-					<Button variant="outline" onClick={onCreate}>
-						Watch a 2-min demo
-					</Button>
-				</div>
-				<div className="mt-7 flex flex-wrap justify-center gap-2">
+				<Link
+					to="/new"
+					className={cn(
+						"inline-flex items-center gap-1.5 rounded-md px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors",
+						isRecruiting
+							? "bg-white text-[var(--color-brand)] hover:bg-white/90"
+							: "bg-[var(--color-brand)] text-white hover:bg-[var(--color-brand-2)]",
+					)}
+				>
+					<Plus size={14} weight="bold" />
+					New search
+				</Link>
+				<div className="mt-8 flex flex-wrap justify-center gap-2">
 					{examples.map((t) => (
-						<Badge key={t} variant="secondary" className="gap-1.5 py-1">
+						<Badge
+							key={t}
+							variant="secondary"
+							className={cn(
+								"gap-1.5 border-0 py-1 text-[12px] font-medium",
+								isRecruiting
+									? "bg-white/15 text-white"
+									: "bg-[var(--color-brand-tint)] text-[var(--color-brand)]",
+							)}
+						>
 							<Sparkle
 								size={12}
 								weight="fill"
-								color="var(--color-brand)"
+								className={
+									isRecruiting ? "text-white" : "text-[var(--color-brand)]"
+								}
 							/>
 							{t}
 						</Badge>
