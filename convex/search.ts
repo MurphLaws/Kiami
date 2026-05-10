@@ -24,7 +24,6 @@ import {
 	classifyCandidates,
 	classifyLeads,
 	generateBriefs,
-	generateContactInfo,
 	generateLeadFilters,
 	generateRecruitingFilters,
 	pickHighProfile,
@@ -116,8 +115,11 @@ export const runSearch = action({
 				result.bc.error = `BC returned no request_id (${submit.message ?? "unknown"})`;
 			} else {
 				result.bc.request_id = submit.request_id;
+				// Tighter poll cadence (was 5s) so the user isn't
+				// staring at the trace for an extra 3-4s after BC has
+				// already finished.
 				const polled = await pollLeadFinder(submit.request_id, {
-					intervalMs: 5_000,
+					intervalMs: 2_000,
 					maxMs: 4 * 60_000,
 				});
 				result.bc.status = polled.status;
@@ -175,24 +177,11 @@ export const runSearch = action({
 			result.leads.push(...synthesized);
 		}
 
-		// --- Generate fake email + phone via LLM agent ---
-		// BC's lead_finder doesn't ship enrichment data on this tier and
-		// PII is stripped anyway. A nano-tier model produces plausible
-		// values (locale-appropriate phone country codes, name-derived
-		// local parts, .example.com TLD) per lead. If the call fails we
-		// fall back to the deterministic stamp so the fold never renders
-		// empty.
-		try {
-			const infos = await generateContactInfo({ leads: result.leads });
-			infos.forEach((info, idx) => {
-				const lead = result.leads[idx];
-				if (!lead) return;
-				if (!lead.email) lead.email = info.email;
-				if (!lead.phone) lead.phone = info.phone;
-			});
-		} catch (err) {
-			console.error("contactInfo agent failed, using fallback", err);
-		}
+		// --- Stamp deterministic fake email + phone ---
+		// We used to route this through an LLM agent for locale-aware
+		// phone country codes, but on a 55-lead batch it cost 5-10
+		// seconds per search and the deterministic stamp looks
+		// indistinguishable in the editorial fold. Skip the round-trip.
 		for (const lead of result.leads) {
 			if (!lead.email) lead.email = fakeEmail(lead);
 			if (!lead.phone) lead.phone = fakePhone(lead);

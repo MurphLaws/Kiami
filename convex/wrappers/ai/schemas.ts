@@ -38,6 +38,12 @@ const bcFilterSchema = z.object({
 	company_technology: stringIncludeExclude,
 	company_headcount_min: z.number().int().nullable(),
 	company_headcount_max: z.number().int().nullable(),
+	// Documented BC slot for filtering by the lead's full or partial
+	// name. Without this in the schema the model would smear the name
+	// into lead_job_title.include and BC would search for people whose
+	// title literally contains the name (returning Iris B., not Nicolas).
+	lead_fullname: stringIncludeExclude,
+	lead_linkedin_url: stringIncludeExclude,
 	lead_department: enumIncludeExclude(DEPARTMENT_ENUM),
 	lead_function: enumIncludeExclude(FUNCTION_ENUM),
 	lead_skills: stringIncludeExclude,
@@ -79,6 +85,8 @@ export type BcFilterSet = {
 	company_technology?: { include?: string[]; exclude?: string[] };
 	company_headcount_min?: number;
 	company_headcount_max?: number;
+	lead_fullname?: { include?: string[]; exclude?: string[] };
+	lead_linkedin_url?: { include?: string[]; exclude?: string[] };
 	lead_department?: { include?: string[]; exclude?: string[] };
 	lead_function?: { include?: string[]; exclude?: string[] };
 	lead_skills?: { include?: string[]; exclude?: string[] };

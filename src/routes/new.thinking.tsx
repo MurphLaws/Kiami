@@ -46,13 +46,12 @@ function ThinkingPage() {
 
 		const interval = window.setInterval(() => {
 			setStep((s) => Math.min(s + 1, TRACE_LINES.length - 1));
-		}, 2_500);
+		}, 1_500);
 
-		// Minimum dwell — even when the search returns fast (cached LLM
-		// + cached BC) we hold the trace for long enough that the user
-		// sees it. Otherwise the page flashes through and looks like
-		// the contacts page just appeared out of nowhere.
-		const MIN_DWELL_MS = 4_000;
+		// Minimum dwell — short enough that fast searches don't sit on
+		// this page after they're done, long enough that the user
+		// registers the trace before the contacts list appears.
+		const MIN_DWELL_MS = 1_200;
 		const startedAt = Date.now();
 
 		(async () => {

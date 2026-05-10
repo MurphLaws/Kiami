@@ -36,12 +36,17 @@ GENERAL RULES (apply to both sets):
 - BC.company_industry must come from a closed LinkedIn-style list (provided in the schema). Pick the closest match or omit. Never invent industry strings.
 - BC.lead_department values are very specific (e.g. "software_development", "recruiting_talent_acquisition"). Only set when obvious. Allowed values: ${DEPARTMENT_ENUM.slice(0, 40).join(", ")}, …
 - BC.company is the COMPANY-DOMAIN filter (e.g. "stripe.com", "rippling.com"). It is NOT a free-text industry or keyword field. Only populate it when the brief names specific company domains. If the brief just says "fintech" or "HR-Tech", DO NOT put that into BC.company — use BC.company_industry instead, or leave both empty.
+- When the brief names a SPECIFIC company by name without giving its domain (e.g. "people at Dapta", "find someone at Linear"), populate BC.company with the most likely domains: STRICT gets the single best guess, LAX fans out across common SaaS TLDs in this order: ${"<lowercase-name>.com"}, ${"<lowercase-name>.ai"}, ${"<lowercase-name>.io"}, ${"<lowercase-name>.co"}, ${"<lowercase-name>.app"}. Example: "Dapta" → strict company.include=["dapta.com"], lax company.include=["dapta.com","dapta.ai","dapta.io","dapta.co","dapta.app"]. This is the ONLY place in the schema where lax may legitimately have MORE entries than strict beyond the documented widening rules.
 - BC.company_headcount_min / company_headcount_max: be generous in strict (no narrower than ~5x), be even more generous in lax (2–3x wider). When the brief mentions a sub-team's size ("engineering org of ~85") that is NOT the company headcount — companies are typically 3–10x bigger than any one team.
 - Apollo.person_seniorities allowed values: ${APOLLO_SENIORITY_ENUM.join(", ")}.
 - Apollo.organization_num_employees_ranges uses string ranges like "1,10", "11,50", "51,200", "201,500", "501,1000", "1001,5000", "5001,10000", "10001,1000000". Use the closest single range or two adjacent ranges in strict, and add neighboring buckets in lax.
 - Job titles: write naturally (e.g. "Senior Backend Engineer"). Do not abbreviate.
 - BC.lead_skills is AND-matched. Strict picks at most 2–3 must-have skills, only ones the brief calls out as essential. Lax has at most 1 or none.
 - BC.lead_location values must be CITY-ONLY ("Berlin", not "Berlin, Germany", not "Berlin metropolitan area"). For country-only matching, use the country name alone ("Germany").
+- BC.lead_fullname: USE THIS for any person-name constraint in the brief. Examples: "named Nicolas" → lead_fullname.include = ["Nicolas"]; "find John Smith" → ["John Smith"]; "anyone named Maria or Pedro" → ["Maria","Pedro"]. NEVER put a person's name into lead_job_title — that searches for people whose JOB TITLE contains the name and matches almost no one.
+- BC.lead_linkedin_url: only set when the brief literally provides a LinkedIn profile URL. Otherwise leave empty.
+- BC.company_technology: optional. Set when the brief names specific tools the company uses ("Salesforce shop", "Snowflake users").
+- USE EVERY APPLICABLE FILTER SLOT. If the brief constrains a dimension, populate the corresponding slot — don't leave it empty out of laziness, and don't pile multiple constraints into one slot.
 - limit: 50. We want a meaningful pool of candidates per search; the action layer pads with synthesized leads if the database returns fewer.
 - rationale: one sentence (under 240 chars) explaining the strict reading and how lax widens it.
 
@@ -65,6 +70,8 @@ Filter slots (BC field name → container shape → notes):
   company_technology            → include/exclude strings   → tech stack mentions ("Salesforce", "AWS", "Snowflake")
   company_headcount_min         → integer                   → company-wide employee count, NOT a sub-team
   company_headcount_max         → integer                   → same
+  lead_fullname                 → include/exclude strings   → first/last/full names — use ONLY this slot when the brief names a person ("named Nicolas", "find John Smith"). NEVER smear a person's name into lead_job_title.
+  lead_linkedin_url             → include/exclude strings   → exact LinkedIn profile URLs when the brief provides them
   lead_department               → include/exclude enums     → very specific values (e.g. "software_development", "recruiting_talent_acquisition")
   lead_function                 → include/exclude enums     → coarse function buckets (engineering, sales, marketing, ...)
   lead_skills                   → include/exclude strings   → AND-matched: cap strict at 2–3, lax at 0–1
@@ -109,6 +116,30 @@ Expected output (abridged, untouched fields shown as empty include/exclude):
   },
   "rationale": "Strict reads as Berlin senior backend with Go/Rust at fintech 80–800; lax widens seniority ±1, headcount 30–2500, and accepts adjacent industries.",
   "limit": 50
+}
+
+EXAMPLE — Recruiting brief (named person)
+Brief: "AI Specialists in Colombia, named Nicolas."
+
+Expected output (abridged):
+{
+  "bc": {
+    "strict": {
+      "lead_fullname": { "include": ["Nicolas"], "exclude": [] },
+      "lead_function": { "include": ["data_science","engineering"], "exclude": [] },
+      "lead_job_title": { "include": ["AI Specialist","Machine Learning Engineer","Data Scientist"], "exclude": [], "exact_match": false },
+      "lead_skills": { "include": ["AI","Machine Learning"], "exclude": [] },
+      "lead_location": { "include": ["Colombia"], "exclude": [] }
+    },
+    "lax": {
+      "lead_fullname": { "include": ["Nicolas","Nico"], "exclude": [] },
+      "lead_function": { "include": ["data_science","engineering","information_technology"], "exclude": [] },
+      "lead_job_title": { "include": ["AI Specialist","Machine Learning","Data Scientist","ML Engineer"], "exclude": [], "exact_match": false },
+      "lead_skills": { "include": ["AI"], "exclude": [] },
+      "lead_location": { "include": ["Colombia","Bogotá","Medellín","Cali"], "exclude": [] }
+    },
+    "limit": 50
+  }
 }
 
 EXAMPLE — Recruiting brief (broad)
