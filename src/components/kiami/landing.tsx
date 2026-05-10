@@ -86,13 +86,13 @@ function Hero() {
 	const [focused, setFocused] = useState(false);
 	const taRef = useRef<HTMLTextAreaElement | null>(null);
 
-	// Auto-cycle the toggle + prompt every 3.4s while the input is idle.
+	// Auto-cycle the toggle + prompt every 6s while the input is idle.
 	// Pauses the moment the user focuses or starts typing.
 	useEffect(() => {
 		if (touched || focused) return;
 		const t = window.setInterval(() => {
 			setTickIdx((i) => (i + 1) % PROMPT_CYCLE.length);
-		}, 3_400);
+		}, 6_000);
 		return () => window.clearInterval(t);
 	}, [touched, focused]);
 
@@ -208,12 +208,25 @@ function FlowToggle({
 	flow: Flow;
 	onPick: (f: Flow) => void;
 }) {
+	const idx = flow === "recruiting" ? 0 : 1;
 	return (
 		<div
 			role="tablist"
 			aria-label="Search mode"
-			className="inline-flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm"
+			className="relative inline-flex items-center rounded-full border bg-card p-1 shadow-sm"
 		>
+			{/* Sliding indicator — single pill that physically moves
+			    between the two tabs instead of fading the bg in/out.
+			    The springy easing gives it a satisfying snap. */}
+			<span
+				aria-hidden
+				className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full shadow-sm transition-transform duration-[420ms] ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+				style={{
+					background: "var(--color-brand)",
+					left: 4,
+					transform: `translateX(${idx * 100}%)`,
+				}}
+			/>
 			<FlowTab
 				active={flow === "recruiting"}
 				onClick={() => onPick("recruiting")}
@@ -248,16 +261,9 @@ function FlowTab({
 			aria-selected={active}
 			onClick={onClick}
 			className={cn(
-				"inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-[13px] font-medium transition-all",
-				active
-					? "text-white shadow-sm"
-					: "text-muted-foreground hover:text-foreground",
+				"relative z-10 inline-flex h-9 w-[112px] items-center justify-center gap-1.5 rounded-full text-[13px] font-medium transition-colors duration-300",
+				active ? "text-white" : "text-muted-foreground hover:text-foreground",
 			)}
-			style={
-				active
-					? { background: "var(--color-brand)" }
-					: undefined
-			}
 		>
 			{icon}
 			{label}
