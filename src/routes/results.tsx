@@ -561,6 +561,30 @@ function MetricCell({
 	);
 }
 
+function BriefButton({
+	expanded,
+	onClick,
+}: {
+	expanded: boolean;
+	onClick: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className={cn(
+				"inline-flex h-8 min-w-[124px] items-center justify-center gap-1.5 rounded-md px-3 text-[12px] font-medium transition-colors",
+				expanded
+					? "bg-[var(--color-brand)] text-white hover:bg-[var(--color-brand-2)]"
+					: "border border-[var(--color-brand)] bg-[var(--color-brand-tint)] text-[var(--color-brand)] hover:bg-[var(--color-brand-tint)]/70",
+			)}
+		>
+			<Sparkle size={11} weight="fill" />
+			{expanded ? "Hide brief" : "View brief"}
+		</button>
+	);
+}
+
 function ScheduleButton({
 	state,
 	onClick,
@@ -792,9 +816,14 @@ function EditorialRow({
 					)}
 				</div>
 
-				{/* Schedule */}
+				{/* High-profile leads get a Brief CTA that opens the editorial
+				    fold. Low-profile leads get the Schedule call action. */}
 				<div>
-					<ScheduleButton state={scheduleState} onClick={onSchedule} />
+					{isHigh ? (
+						<BriefButton expanded={expanded} onClick={onToggle} />
+					) : (
+						<ScheduleButton state={scheduleState} onClick={onSchedule} />
+					)}
 				</div>
 
 				{/* Caret */}

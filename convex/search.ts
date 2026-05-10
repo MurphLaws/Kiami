@@ -573,6 +573,55 @@ function computeTags(
 		.slice(0, 8);
 }
 
+// BetterContact has shipped at least four different field names for the
+// LinkedIn URL across plan tiers and API versions. Try each one, then
+// fall back to a heuristic scan of the raw payload for any *_linkedin*
+// key containing a linkedin.com URL. Returns undefined only when the
+// payload genuinely has nothing to offer.
+function extractLinkedIn(raw: Record<string, unknown>): string | undefined {
+	const KNOWN_KEYS = [
+		"contact_linkedin_url",
+		"contact_linkedin_profile_url",
+		"contact_linkedin",
+		"contact_linkedin_profile",
+		"linkedin_url",
+		"linkedin_profile_url",
+		"linkedin",
+	];
+	for (const k of KNOWN_KEYS) {
+		const v = raw[k];
+		if (typeof v === "string" && /linkedin\.com\//i.test(v)) {
+			return normalizeLinkedInUrl(v);
+		}
+	}
+	// Heuristic sweep: any key with "linkedin" in the name whose value
+	// looks like a LinkedIn URL.
+	for (const [k, v] of Object.entries(raw)) {
+		if (!/linkedin/i.test(k)) continue;
+		if (typeof v === "string" && /linkedin\.com\//i.test(v)) {
+			return normalizeLinkedInUrl(v);
+		}
+	}
+	// Some payloads expose only a slug like `johndoe-12345`. If we have
+	// a slug-shaped field, build the canonical URL.
+	for (const [k, v] of Object.entries(raw)) {
+		if (!/linkedin/i.test(k)) continue;
+		if (typeof v === "string" && v.trim() && !/\s/.test(v)) {
+			const slug = v.replace(/^\/+|\/+$/g, "");
+			if (/^[a-z0-9._-]{3,}$/i.test(slug)) {
+				return `https://www.linkedin.com/in/${slug}`;
+			}
+		}
+	}
+	return undefined;
+}
+
+function normalizeLinkedInUrl(url: string): string {
+	const trimmed = url.trim();
+	if (/^https?:\/\//i.test(trimmed)) return trimmed;
+	return `https://${trimmed.replace(/^\/+/, "")}`;
+}
+
 function looksLikeDomain(s: string): boolean {
 	// e.g. "stripe.com", "rippling.com", "sub.example.co.uk".
 	// Reject things like "fintech", "HR-Tech", "payments".
@@ -598,8 +647,7 @@ function normalizeBcLead(lead: BcLead): NormalizedLead {
 			(get("contact_location") as string | undefined) ??
 			(get("contact_city") as string | undefined) ??
 			(get("contact_country") as string | undefined),
-		linkedin_url:
-			(get("contact_linkedin_url") as string | undefined) ?? undefined,
+		linkedin_url: extractLinkedIn(lead as Record<string, unknown>),
 		company_name:
 			(get("company_name") as string | undefined) ?? undefined,
 		company_industry:
