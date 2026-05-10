@@ -37,10 +37,32 @@ export const scrapeJob = action({
 	args: { url: v.string() },
 	returns: v.any(),
 	handler: async (_ctx, args): Promise<ScrapeResult> => {
-		const url = normalizeUrl(args.url);
-		if (!url) return { ok: false, error: "That doesn't look like a URL." };
-
+		// Outer try/catch is belt-and-suspenders — every upstream
+		// failure (network, malformed URL, regex chokes on a 5MB SPA
+		// shell, etc.) needs to come back as a structured `ok: false`
+		// so the form can render a helpful message instead of the
+		// generic Convex "Server Error Called by client".
 		try {
+			const url = normalizeUrl(args.url);
+			if (!url) {
+				return { ok: false, error: "That doesn't look like a URL." };
+			}
+
+			// LinkedIn's anti-bot infrastructure returns 999 / 403 to
+			// most server-side fetchers. We can guess this from the URL
+			// alone — surface it as a friendly message instead of a
+			// dead-end network error.
+			if (
+				/(^|\.)linkedin\.com$/i.test(new URL(url).hostname) &&
+				!/\/jobs\/view\//i.test(new URL(url).pathname)
+			) {
+				return {
+					ok: false,
+					error:
+						"LinkedIn only exposes guest-readable JDs at /jobs/view/<id>. Open the listing on LinkedIn, copy the canonical URL from the address bar, and try again.",
+				};
+			}
+
 			const html = await fetchHtml(url);
 			const ld = pickJobPostingLd(html);
 			if (ld) {
@@ -83,7 +105,10 @@ export const scrapeJob = action({
 		} catch (err) {
 			return {
 				ok: false,
-				error: err instanceof Error ? err.message : String(err),
+				error:
+					err instanceof Error
+						? `Couldn't fetch that URL: ${err.message}`
+						: String(err),
 			};
 		}
 	},
@@ -118,20 +143,32 @@ function normalizeUrl(raw: string): string | null {
 }
 
 async function fetchHtml(url: string): Promise<string> {
-	const res = await fetch(url, {
-		headers: {
-			"User-Agent": UA,
-			Accept:
-				"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-			"Accept-Language": "en-US,en;q=0.9",
-			"Cache-Control": "no-cache",
-		},
-		redirect: "follow",
-	});
-	if (!res.ok) {
-		throw new Error(`upstream returned ${res.status}`);
+	// Bound the request: ATS pages are ~50–200 KB, LinkedIn guest pages
+	// are ~500 KB. We hard-cap at 5 MB to keep regex passes bounded.
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), 12_000);
+	try {
+		const res = await fetch(url, {
+			headers: {
+				"User-Agent": UA,
+				Accept:
+					"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+				"Accept-Language": "en-US,en;q=0.9",
+				"Cache-Control": "no-cache",
+			},
+			redirect: "follow",
+			signal: controller.signal,
+		});
+		if (!res.ok) {
+			throw new Error(`upstream returned ${res.status}`);
+		}
+		const text = await res.text();
+		// Cap to 5 MB worth of characters. Anything larger is almost
+		// certainly an SPA shell with no useful JD inline.
+		return text.length > 5_000_000 ? text.slice(0, 5_000_000) : text;
+	} finally {
+		clearTimeout(timer);
 	}
-	return await res.text();
 }
 
 function pickJobPostingLd(html: string): Record<string, unknown> | null {

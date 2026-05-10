@@ -14,7 +14,6 @@ import type * as scheduleCall from "../scheduleCall.js";
 import type * as scrapeJob from "../scrapeJob.js";
 import type * as search from "../search.js";
 import type * as searchTypes from "../searchTypes.js";
-import type * as testBc from "../testBc.js";
 import type * as wrappers_ai_briefs from "../wrappers/ai/briefs.js";
 import type * as wrappers_ai_classifyCandidates from "../wrappers/ai/classifyCandidates.js";
 import type * as wrappers_ai_classifyLeads from "../wrappers/ai/classifyLeads.js";
@@ -43,7 +42,6 @@ declare const fullApi: ApiFromModules<{
   scrapeJob: typeof scrapeJob;
   search: typeof search;
   searchTypes: typeof searchTypes;
-  testBc: typeof testBc;
   "wrappers/ai/briefs": typeof wrappers_ai_briefs;
   "wrappers/ai/classifyCandidates": typeof wrappers_ai_classifyCandidates;
   "wrappers/ai/classifyLeads": typeof wrappers_ai_classifyLeads;

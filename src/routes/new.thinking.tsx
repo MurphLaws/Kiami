@@ -43,12 +43,25 @@ function ThinkingPage() {
 			setStep((s) => Math.min(s + 1, TRACE_LINES.length - 1));
 		}, 2_500);
 
+		// Minimum dwell — even when the search returns fast (cached LLM
+		// + cached BC) we hold the trace for long enough that the user
+		// sees it. Otherwise the page flashes through and looks like
+		// the contacts page just appeared out of nowhere.
+		const MIN_DWELL_MS = 4_000;
+		const startedAt = Date.now();
+
 		(async () => {
 			try {
 				const result = (await runSearch({
 					flow: brief.flow,
 					brief: brief.brief,
 				})) as unknown as StoredSearchResult;
+				const elapsed = Date.now() - startedAt;
+				if (elapsed < MIN_DWELL_MS) {
+					await new Promise((r) =>
+						window.setTimeout(r, MIN_DWELL_MS - elapsed),
+					);
+				}
 				saveResult({ ...result, finished_at: Date.now() });
 				window.clearInterval(interval);
 				void navigate({ to: "/results" });
