@@ -74,12 +74,17 @@ export const runSearch = action({
 			leads: [],
 		};
 
+		// Server-side rescue: even with a tightened prompt the model still
+		// occasionally produces filters that wipe the result set. Patch
+		// the obvious mistakes before we hit the API.
+		const sanitized = sanitizeFilters(inferred.bc.filters);
+		// Hard cap the limit at 5 here too, regardless of what came back
+		// from the model — credit-spend defense.
+		const safeLimit = Math.min(inferred.bc.limit ?? 5, 5);
+
 		// --- BetterContact pass ---
 		try {
-			const submit = await submitLeadFinder(
-				inferred.bc.filters,
-				inferred.bc.limit,
-			);
+			const submit = await submitLeadFinder(sanitized, safeLimit);
 			if (!submit.request_id) {
 				result.bc.error = `BC returned no request_id (${submit.message ?? "unknown"})`;
 			} else {
@@ -108,7 +113,7 @@ export const runSearch = action({
 			try {
 				const apollo = await apolloPeopleSearch({
 					...inferred.apollo,
-					per_page: 25,
+					per_page: 5,
 				});
 				const people = apollo.people ?? [];
 				result.apollo.leads_found = people.length;
@@ -150,6 +155,117 @@ export const runSearch = action({
 		return result;
 	},
 });
+
+// Defense layer between the LLM and BetterContact. Even with a strong
+// prompt, the model occasionally picks filters that nuke the result set.
+// We strip the most common offenders here so the user gets matches
+// instead of silence.
+function sanitizeFilters(
+	filters: Record<string, unknown>,
+): Record<string, unknown> {
+	// Shallow clone — the model's output, after compactFilters, is a plain
+	// object tree; we only mutate at known keys.
+	const out: Record<string, unknown> = { ...filters };
+
+	// 1. BC.company is a DOMAIN filter. If the model put industry words
+	//    like "fintech" or "HR-Tech" in there, drop the bad entries.
+	if (out.company && typeof out.company === "object") {
+		const co = out.company as { include?: string[]; exclude?: string[] };
+		const goodInclude = (co.include ?? []).filter(looksLikeDomain);
+		const goodExclude = (co.exclude ?? []).filter(looksLikeDomain);
+		if (goodInclude.length === 0 && goodExclude.length === 0) {
+			delete out.company;
+		} else {
+			out.company = {
+				...(goodInclude.length ? { include: goodInclude } : {}),
+				...(goodExclude.length ? { exclude: goodExclude } : {}),
+			};
+		}
+	}
+
+	// 2. Headcount: if min/max produce a band tighter than 4x, widen
+	//    around the midpoint. The classic failure mode is the model
+	//    reading "engineering team of ~85" as company headcount = 85.
+	const minRaw = out.company_headcount_min;
+	const maxRaw = out.company_headcount_max;
+	const min =
+		typeof minRaw === "number" && Number.isFinite(minRaw) ? minRaw : null;
+	const max =
+		typeof maxRaw === "number" && Number.isFinite(maxRaw) ? maxRaw : null;
+	if (min !== null && max !== null && min > 0 && max > 0) {
+		const ratio = max / min;
+		if (ratio < 4) {
+			const mid = Math.sqrt(min * max);
+			out.company_headcount_min = Math.max(1, Math.round(mid / 3));
+			out.company_headcount_max = Math.max(
+				out.company_headcount_min as number,
+				Math.round(mid * 3),
+			);
+		}
+	}
+
+	// 3. lead_job_title: default exact_match to false. Exact matches
+	//    against BC's index miss too many obvious variants
+	//    (e.g. "Senior Backend Engineer" vs "Sr. Backend Engineer").
+	if (out.lead_job_title && typeof out.lead_job_title === "object") {
+		const jt = out.lead_job_title as {
+			include?: string[];
+			exclude?: string[];
+			exact_match?: boolean;
+		};
+		if (jt.exact_match === true) {
+			out.lead_job_title = { ...jt, exact_match: false };
+		}
+	}
+
+	// 4. lead_skills is AND-matched. Cap at 3 entries to avoid empty
+	//    result sets. We pick the first 3 in the include list since the
+	//    model is prompted to list them by importance.
+	if (out.lead_skills && typeof out.lead_skills === "object") {
+		const sk = out.lead_skills as { include?: string[]; exclude?: string[] };
+		if (sk.include && sk.include.length > 3) {
+			out.lead_skills = { ...sk, include: sk.include.slice(0, 3) };
+		}
+	}
+
+	// 5. lead_location: BC matches the literal string, so "Berlin,
+	//    Germany" misses contacts whose location is just "Berlin".
+	//    Strip everything after the first comma and drop region/metro
+	//    qualifiers.
+	if (out.lead_location && typeof out.lead_location === "object") {
+		const loc = out.lead_location as {
+			include?: string[];
+			exclude?: string[];
+		};
+		const clean = (xs?: string[]) =>
+			(xs ?? [])
+				.map((s) =>
+					s
+						.split(",")[0]
+						.replace(/metropolitan area|metro area|metro|area/gi, "")
+						.trim(),
+				)
+				.filter(Boolean);
+		const inc = clean(loc.include);
+		const exc = clean(loc.exclude);
+		if (inc.length === 0 && exc.length === 0) {
+			delete out.lead_location;
+		} else {
+			out.lead_location = {
+				...(inc.length ? { include: inc } : {}),
+				...(exc.length ? { exclude: exc } : {}),
+			};
+		}
+	}
+
+	return out;
+}
+
+function looksLikeDomain(s: string): boolean {
+	// e.g. "stripe.com", "rippling.com", "sub.example.co.uk".
+	// Reject things like "fintech", "HR-Tech", "payments".
+	return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(s.trim());
+}
 
 function normalizeBcLead(lead: BcLead): NormalizedLead {
 	const get = (k: string) => (lead as Record<string, unknown>)[k];
