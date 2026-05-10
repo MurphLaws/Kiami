@@ -28,6 +28,23 @@ export type StoredLead = {
 		why_they_fit: string;
 		suggested_opener: string;
 	};
+	// LLM classification mirrored from convex/searchTypes.ts NormalizedLead.
+	// Populated server-side once per search.
+	classification?:
+		| {
+				kind: "lead";
+				tier: "hot" | "warm" | "cold";
+				icp_fit: "high" | "medium" | "low";
+				confidence: number;
+				reasoning: string;
+		  }
+		| {
+				kind: "candidate";
+				role_fit: "high" | "medium" | "low";
+				seniority_match: "over" | "match" | "under";
+				recommendation: "shortlist" | "screen" | "pass";
+				reasoning: string;
+		  };
 	// Full upstream payload (BC fields like contact_headline, company_about,
 	// etc.). Populated server-side on every search; the foldable card
 	// surfaces it.
