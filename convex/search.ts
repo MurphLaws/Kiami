@@ -83,10 +83,49 @@ export const runSearch = action({
 	},
 	returns: v.any(),
 	handler: async (_ctx, args): Promise<SearchResult> => {
-		const inferred =
-			args.flow === "recruiting"
-				? await generateRecruitingFilters(args.brief)
-				: await generateLeadFilters(args.brief);
+		// Filter inference is the only LLM call that can take the whole
+		// search down (everything else has a try/catch around it). If
+		// the OpenAI quota is exhausted or the gateway is down, we fall
+		// back to a no-filter pass — synthesized leads still render so
+		// the demo never crashes hard.
+		let inferred: InferredFilters;
+		let filterFallback = false;
+		try {
+			inferred =
+				args.flow === "recruiting"
+					? await generateRecruitingFilters(args.brief)
+					: await generateLeadFilters(args.brief);
+		} catch (err) {
+			console.error("filter inference failed, using fallback", err);
+			filterFallback = true;
+			inferred = {
+				bc: { strict: {}, lax: {}, limit: BC_TARGET },
+				apollo: {
+					strict: {
+						person_titles: [],
+						person_seniorities: [],
+						person_locations: [],
+						organization_locations: [],
+						organization_num_employees_ranges: [],
+						q_keywords: "",
+						include_similar_titles: false,
+					},
+					lax: {
+						person_titles: [],
+						person_seniorities: [],
+						person_locations: [],
+						organization_locations: [],
+						organization_num_employees_ranges: [],
+						q_keywords: "",
+						include_similar_titles: true,
+					},
+				},
+				rationale:
+					err instanceof Error && /quota|rate/i.test(err.message)
+						? "OpenAI quota exhausted — showing inferred leads only."
+						: "Filter agent unavailable — showing inferred leads only.",
+			};
+		}
 
 		const result: SearchResult = {
 			rationale: inferred.rationale,
@@ -95,6 +134,7 @@ export const runSearch = action({
 			apollo: { ran: false, leads_found: 0 },
 			leads: [],
 		};
+		if (filterFallback) result.bc.error = "filter agent fallback";
 
 		// Server-side rescue: even with a tightened prompt the model still
 		// occasionally produces filters that wipe the result set. Run the
