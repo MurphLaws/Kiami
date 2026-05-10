@@ -15,9 +15,7 @@ import {
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { FocusedHeader } from "@/components/kiami/focused-header";
 import { personNoun, useMode } from "@/components/kiami/flow";
 import {
@@ -34,6 +32,44 @@ export const Route = createFileRoute("/results")({
 
 type SourceFilter = "all" | "primary" | "network" | "high";
 type ScheduleState = "idle" | "loading" | "error";
+
+/* Animates a number from 0 → `value` over 600ms when it first mounts.
+   No deps; cleanup safe. Falls back to the value if reduced-motion is
+   the user preference. */
+function CountUp({
+	value,
+	className,
+}: {
+	value: number;
+	className?: string;
+}) {
+	const [n, setN] = useState(0);
+	useEffect(() => {
+		if (typeof window === "undefined") {
+			setN(value);
+			return;
+		}
+		const reduce = window.matchMedia?.(
+			"(prefers-reduced-motion: reduce)",
+		)?.matches;
+		if (reduce || value === 0) {
+			setN(value);
+			return;
+		}
+		const start = performance.now();
+		const dur = 600;
+		let raf = 0;
+		const tick = (now: number) => {
+			const t = Math.min(1, (now - start) / dur);
+			const eased = 1 - Math.pow(1 - t, 3);
+			setN(Math.round(eased * value));
+			if (t < 1) raf = window.requestAnimationFrame(tick);
+		};
+		raf = window.requestAnimationFrame(tick);
+		return () => window.cancelAnimationFrame(raf);
+	}, [value]);
+	return <span className={className}>{n}</span>;
+}
 
 function ResultsPage() {
 	const navigate = useNavigate();
@@ -192,27 +228,34 @@ function ResultsPage() {
 
 	const fatal = classifyError(result);
 
+	const filters: Array<[SourceFilter, string, number]> = [
+		["all", "All", result.leads.length],
+		["high", "High profile", highCount],
+		["primary", "Primary", primaryCount],
+		["network", "Wider sweep", networkCount],
+	];
+
 	return (
-		<div className="min-h-screen bg-muted">
+		<div className="min-h-screen bg-paper">
 			<FocusedHeader />
 			<div className="mx-auto max-w-[1200px] px-8 pt-8 pb-16">
-				<div className="mb-6">
+				<div className="mb-7">
 					<Link
 						to="/new"
-						className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+						className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
 					>
-						<ArrowLeft size={14} />
+						<ArrowLeft size={13} />
 						Run another search
 					</Link>
 				</div>
 
 				{fatal && (
 					<div
-						className="mb-6 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4"
 						role="alert"
+						className="kiami-fade-up mb-7 flex items-start gap-3 border-l-[3px] border-destructive bg-destructive/5 px-4 py-3"
 					>
 						<Warning
-							size={18}
+							size={16}
 							weight="fill"
 							className="mt-0.5 shrink-0 text-destructive"
 						/>
@@ -230,28 +273,32 @@ function ResultsPage() {
 					</div>
 				)}
 
-				<div className="mb-7 flex flex-wrap items-start justify-between gap-4">
-					<div>
-						<span className="text-[12px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
-							Results
-						</span>
-						<h1 className="mt-1.5 font-heading text-[36px] font-semibold leading-tight tracking-tight">
-							{result.leads.length}{" "}
+				<header className="mb-10 flex flex-wrap items-end justify-between gap-6">
+					<div className="kiami-fade-up max-w-[680px]" style={{ animationDelay: "60ms" }}>
+						<span className="eyebrow">Results</span>
+						<h1 className="mt-3 font-heading text-[44px] font-semibold leading-[1.05] tracking-[-0.025em]">
+							<CountUp value={result.leads.length} className="tnum mr-2" />
 							{result.leads.length === 1 ? peopleSingular : peoplePlural} found
 						</h1>
 						{result.rationale && (
-							<p className="mt-2 max-w-[640px] text-[15px] text-muted-foreground">
+							<p
+								className="kiami-fade-up mt-3 text-[15px] leading-snug text-muted-foreground"
+								style={{ animationDelay: "180ms" }}
+							>
 								<Sparkle
-									size={13}
+									size={12}
 									weight="fill"
 									color="var(--color-brand)"
-									className="mr-1.5 inline-block"
+									className="mr-1.5 inline-block align-middle"
 								/>
 								{result.rationale}
 							</p>
 						)}
 					</div>
-					<div className="flex flex-wrap items-center gap-2">
+					<div
+						className="kiami-fade-up flex flex-wrap items-center gap-2"
+						style={{ animationDelay: "120ms" }}
+					>
 						<GlobalScheduleButton
 							state={globalState}
 							lowCount={lowCount}
@@ -267,10 +314,13 @@ function ResultsPage() {
 							Export CSV
 						</Button>
 					</div>
-				</div>
+				</header>
 
-				<div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
-					<StatCard
+				<div
+					className="kiami-fade-up mb-10 grid grid-cols-3 border-y"
+					style={{ animationDelay: "180ms" }}
+				>
+					<MetricCell
 						label="Primary index"
 						count={primaryCount}
 						sub={
@@ -278,9 +328,8 @@ function ResultsPage() {
 								? `${primaryCount} matched directly`
 								: "no direct matches"
 						}
-						accent="var(--color-peach-icon)"
 					/>
-					<StatCard
+					<MetricCell
 						label="Wider sweep"
 						count={networkCount}
 						sub={
@@ -288,9 +337,9 @@ function ResultsPage() {
 								? `${networkCount} from secondary sources`
 								: "not needed"
 						}
-						accent="var(--color-coral-icon)"
+						bordered
 					/>
-					<StatCard
+					<MetricCell
 						label="High profile"
 						count={highCount}
 						sub={
@@ -298,19 +347,16 @@ function ResultsPage() {
 								? `${highCount} flagged for outreach`
 								: "no standouts"
 						}
-						accent="var(--color-brand)"
+						accent
+						bordered
 					/>
 				</div>
 
-				<div className="mb-3 flex flex-wrap items-center gap-1.5">
-					{(
-						[
-							["all", "All", result.leads.length],
-							["high", "High profile", highCount],
-							["primary", "Primary", primaryCount],
-							["network", "Wider sweep", networkCount],
-						] as const
-					).map(([id, label, n]) => {
+				<div
+					className="kiami-fade-up mb-2 flex flex-wrap items-baseline gap-7"
+					style={{ animationDelay: "220ms" }}
+				>
+					{filters.map(([id, label, n]) => {
 						const active = filter === id;
 						return (
 							<button
@@ -318,27 +364,33 @@ function ResultsPage() {
 								key={id}
 								onClick={() => setFilter(id)}
 								className={cn(
-									"inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+									"relative inline-flex items-baseline gap-2 pb-2 text-[13px] transition-colors",
 									active
-										? "bg-card font-medium text-foreground shadow-xs"
+										? "font-medium text-foreground"
 										: "text-muted-foreground hover:text-foreground",
 								)}
 							>
 								{label}
 								<span
 									className={cn(
-										"min-w-5 rounded px-1.5 text-center text-[11px]",
-										active ? "border bg-card" : "text-muted-foreground",
+										"font-mono-display tnum text-[11px]",
+										active ? "text-foreground" : "text-muted-foreground/70",
 									)}
 								>
 									{n}
 								</span>
+								{active && (
+									<span
+										className="absolute right-0 bottom-0 left-0 h-[2px]"
+										style={{ background: "var(--color-brand)" }}
+									/>
+								)}
 							</button>
 						);
 					})}
 				</div>
 
-				<Card className="overflow-hidden bg-card p-0">
+				<div className="border-t">
 					{visibleIdx.length === 0 ? (
 						<div className="px-8 py-14 text-center">
 							<div className="font-heading text-[22px] font-semibold tracking-tight">
@@ -361,85 +413,77 @@ function ResultsPage() {
 						</div>
 					) : (
 						<>
-							{visibleIdx.map((idx) => {
+							{visibleIdx.map((idx, i) => {
 								const l = result.leads[idx];
 								const isOpen = expanded.has(idx);
 								const sched = scheduleByIdx[idx] ?? "idle";
 								return (
-									<EditorialRow
+									<div
 										key={`${l.source}-${l.linkedin_url ?? l.full_name}-${idx}`}
-										lead={l}
-										expanded={isOpen}
-										scheduleState={sched}
-										onToggle={() => toggleExpand(idx)}
-										onSchedule={() => scheduleOne(idx)}
-									/>
+										className="kiami-fade-up"
+										style={{
+											animationDelay: `${260 + i * 50}ms`,
+											animationFillMode: "backwards",
+										}}
+									>
+										<EditorialRow
+											lead={l}
+											expanded={isOpen}
+											scheduleState={sched}
+											onToggle={() => toggleExpand(idx)}
+											onSchedule={() => scheduleOne(idx)}
+										/>
+									</div>
 								);
 							})}
 						</>
 					)}
-				</Card>
+				</div>
 			</div>
 		</div>
 	);
 }
 
-function StatCard({
+function MetricCell({
 	label,
 	count,
 	sub,
 	accent,
+	bordered,
 }: {
 	label: string;
 	count: number;
 	sub: string;
-	accent: string;
+	accent?: boolean;
+	bordered?: boolean;
 }) {
 	return (
-		<Card className="p-4">
+		<div
+			className={cn(
+				"flex flex-col gap-2 px-6 py-7",
+				bordered && "border-l",
+			)}
+		>
 			<div className="flex items-center gap-2">
 				<span
-					className="h-2 w-2 rounded-sm"
-					style={{ background: accent }}
+					className="h-1.5 w-1.5 rounded-full"
+					style={{
+						background: accent
+							? "var(--color-brand)"
+							: "var(--color-border-strong)",
+					}}
 				/>
-				<span className="text-[12px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-					{label}
-				</span>
+				<span className="eyebrow">{label}</span>
 			</div>
-			<div className="mt-2 font-heading text-[28px] font-semibold leading-none tracking-tight">
-				{count}
-			</div>
-			<div className="mt-1.5 text-[12px] text-muted-foreground">{sub}</div>
-		</Card>
-	);
-}
-
-function SourceBadge({ source }: { source: "bettercontact" | "apollo" }) {
-	const isPrimary = source === "bettercontact";
-	const label = isPrimary ? "Primary" : "Wider sweep";
-	return (
-		<Badge
-			variant="secondary"
-			className="gap-1.5 py-1"
-			style={{
-				background: isPrimary
-					? "var(--color-peach-tint)"
-					: "var(--color-coral-tint)",
-				color: isPrimary
-					? "var(--color-peach-icon)"
-					: "var(--color-coral-icon)",
-			}}
-		>
-			<span
-				className="h-1.5 w-1.5 rounded-full"
-				style={{
-					background: isPrimary
-						? "var(--color-peach-icon)"
-						: "var(--color-coral-icon)",
-				}}
+			<CountUp
+				value={count}
+				className={cn(
+					"font-heading text-[44px] font-semibold leading-none tracking-[-0.02em] tnum",
+					count === 0 && "text-muted-foreground",
+				)}
 			/>
-			{label}
-		</Badge>
+			<span className="text-[12px] text-muted-foreground">{sub}</span>
+		</div>
 	);
 }
 

@@ -185,53 +185,49 @@ function LogoStrip() {
 function TwoWorkflows() {
 	const recItems = [
 		{
-			Icon: ChatCircle,
 			title: "Natural-language sourcing",
-			body: "Describe the ideal candidate in plain English. We handle the boolean mapping for you.",
+			body: "Describe the ideal candidate in plain English. Kiami handles the boolean mapping.",
 		},
 		{
-			Icon: ChartLineUp,
 			title: "Experience graphing",
 			body: "Visualize career trajectories to predict readiness for senior or leadership roles.",
 		},
 		{
-			Icon: Tray,
 			title: "Outreach-ready exports",
 			body: "Push shortlists straight to your ATS or sequencer with structured fields.",
 		},
 	];
 	const salesItems = [
 		{
-			Icon: Target,
 			title: "Intent-based targeting",
 			body: "Identify decision makers before they start evaluating competitors.",
 		},
 		{
-			Icon: Path,
 			title: "Account mapping",
 			body: "Automatically generate buying committees for enterprise accounts.",
 		},
 		{
-			Icon: Graph,
 			title: "CRM-native handoff",
 			body: "Drop ranked accounts into Salesforce or HubSpot with reasoning attached.",
 		},
 	];
 
 	return (
-		<section className="px-8 py-16">
+		<section className="bg-paper px-8 py-20">
 			<div className="mx-auto max-w-[1100px]">
-				<div className="mb-12 text-center">
-					<h2 className="font-heading text-[40px] font-semibold leading-tight tracking-tight">
+				<div className="mb-12">
+					<span className="eyebrow">What you get</span>
+					<h2 className="mt-3 font-heading text-[40px] font-semibold leading-[1.1] tracking-[-0.025em]">
 						One platform, two workflows.
 					</h2>
-					<p className="mt-3 text-[17px] text-muted-foreground">
-						Purpose-built interfaces for the way your teams actually work.
+					<p className="mt-2 max-w-[520px] text-[16px] text-muted-foreground">
+						Purpose-built surfaces for the way your teams actually work — same
+						pipeline, different vocabulary.
 					</p>
 				</div>
-				<div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-					<WorkflowColumn flow="recruiting" items={recItems} />
-					<WorkflowColumn flow="sales" items={salesItems} />
+				<div className="grid grid-cols-1 gap-x-12 md:grid-cols-2 md:divide-x md:divide-[var(--color-border)]">
+					<WorkflowColumn label="Recruiting" items={recItems} />
+					<WorkflowColumn label="Lead Finder" items={salesItems} pl />
 				</div>
 			</div>
 		</section>
@@ -239,42 +235,46 @@ function TwoWorkflows() {
 }
 
 function WorkflowColumn({
-	flow,
+	label,
 	items,
+	pl,
 }: {
-	flow: "recruiting" | "sales";
-	items: Array<{
-		Icon: React.ComponentType<{ size?: number; weight?: "regular" | "fill" }>;
-		title: string;
-		body: string;
-	}>;
+	label: string;
+	items: Array<{ title: string; body: string }>;
+	pl?: boolean;
 }) {
-	const tone = flow === "recruiting" ? "peach" : "coral";
 	return (
-		<div>
-			<div className="mb-4">
-				<TypePill flow={flow} />
+		<div className={pl ? "md:pl-12" : ""}>
+			<div className="mb-6 inline-flex items-center gap-2">
+				<span
+					className="inline-block h-1.5 w-1.5 rounded-full"
+					style={{ background: "var(--color-brand)" }}
+				/>
+				<span className="eyebrow">{label}</span>
 			</div>
-			<div className="grid gap-3">
+			<ul className="grid">
 				{items.map((it, i) => (
-					<Card
+					<li
 						key={i}
-						className="flex flex-row items-start gap-4 p-5 transition-shadow hover:shadow-md"
+						className="grid grid-cols-[44px_1fr] items-start gap-4 border-t py-5 last:border-b"
 					>
-						<IconTile tone={tone}>
-							<it.Icon size={18} weight="regular" />
-						</IconTile>
+						<span
+							className="font-mono-display tnum text-[12px] tracking-[0.04em]"
+							style={{ color: "var(--color-brand)" }}
+						>
+							{String(i + 1).padStart(2, "0")}
+						</span>
 						<div>
-							<div className="font-heading text-base font-semibold">
+							<div className="font-heading text-[18px] font-semibold leading-tight tracking-[-0.015em]">
 								{it.title}
 							</div>
-							<div className="mt-1 text-sm text-muted-foreground">
+							<div className="mt-1.5 text-[14px] leading-snug text-muted-foreground">
 								{it.body}
 							</div>
 						</div>
-					</Card>
+					</li>
 				))}
-			</div>
+			</ul>
 		</div>
 	);
 }
