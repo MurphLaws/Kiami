@@ -670,14 +670,15 @@ function generateProceduralDemoLeads(
 }
 
 function buildDemoSearchResult(): SearchResult {
-	// Layout: Sebastian (pinned, low) + 8 hand-written high-profile leads
-	// (each with a written brief) + 40 procedural BC fillers + 4 procedural
-	// Apollo fillers = 53 leads total.
+	// Layout: 8 hand-written high-profile leads (each with a written
+	// brief) → Sebastian (pinned, low-profile, sits at the top of the
+	// low cluster) → 40 procedural BC fillers → 4 procedural Apollo
+	// fillers. 53 leads total.
 	const procBc = generateProceduralDemoLeads(40, "bettercontact", 1);
 	const procApollo = generateProceduralDemoLeads(4, "apollo", 137);
 	const leads: NormalizedLead[] = [
-		{ ...SEBASTIAN_LEAD },
 		...DEMO_LEADS.map((l) => ({ ...l, raw: {} })),
+		{ ...SEBASTIAN_LEAD },
 		...procBc,
 		...procApollo,
 	];
@@ -757,12 +758,13 @@ export const runSearch = action({
 	},
 	returns: v.any(),
 	handler: async (_ctx, args): Promise<SearchResult> => {
-		// Recorded-demo short-circuit. When the canned Spanish prompt is
-		// typed (sales flow, mentions "tech lead" + fintech/bank +
-		// Colombia/virtual), skip the real pipeline, sleep 15s so the
-		// trace overlay feels like a real remote search, and return the
-		// pre-baked slate.
-		if (isDemoQuery(args.flow, args.brief)) {
+		// DEMO RECORDING MODE — every search short-circuits to the
+		// hardcoded slate after a 15s simulated trace. Flip
+		// DEMO_RECORDING_MODE to false (or delete this block) when the
+		// demo is in the can to restore the real pipeline.
+		const DEMO_RECORDING_MODE: boolean = true;
+		if (DEMO_RECORDING_MODE) {
+			void args;
 			await new Promise((resolve) => setTimeout(resolve, 15_000));
 			return buildDemoSearchResult();
 		}
