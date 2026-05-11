@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Play } from "@phosphor-icons/react";
+import { Play, Pause } from "@phosphor-icons/react";
 
 const DEMO_VIDEO_URL = "/kiami-demo.mp4";
 
@@ -9,7 +9,7 @@ const MAX_GLOW = 1; // 0..1, scales the glow strength
 export function TiltedVideo() {
 	const ref = useRef<HTMLVideoElement | null>(null);
 	const wrapRef = useRef<HTMLDivElement | null>(null);
-	const [playing, setPlaying] = useState(true);
+	const [playing, setPlaying] = useState(false);
 	const [progress, setProgress] = useState(MAX_GLOW);
 
 	useEffect(() => {
@@ -55,9 +55,11 @@ export function TiltedVideo() {
 
 	const tilt = progress * MAX_TILT_DEG;
 	const glow = progress * MAX_GLOW;
-	// Two stacked shadows: the soft ambient drop, plus a brand-tinted glow
-	// that lights up the rim when the element is far from the viewport
-	// center and fades out as the user scrolls it into focus.
+	// The play button fades in as the user scrolls toward the video. When
+	// the tile is below the viewport center, scrollProgress = 1 and the
+	// button is fully visible; once the tile is centered (or above) it
+	// fades to 0 — at that point the user is already looking at the video.
+	const scrollProgress = 1 - progress;
 	const ambient =
 		"0 40px 80px -30px rgba(11,18,32,0.35), 0 12px 24px -12px rgba(11,18,32,0.18)";
 	const brand = "30,91,255"; // var(--color-brand) as RGB
@@ -80,27 +82,11 @@ export function TiltedVideo() {
 					background: "#0B1220",
 				}}
 			>
-				{/* Browser chrome */}
-				<div className="flex items-center gap-2 border-b border-white/5 bg-[#0F1726] px-4 py-3">
-					<span className="h-2.5 w-2.5 rounded-full bg-[#FF5F57]" />
-					<span className="h-2.5 w-2.5 rounded-full bg-[#FEBC2E]" />
-					<span className="h-2.5 w-2.5 rounded-full bg-[#28C840]" />
-					<span className="ml-3.5 font-mono-display text-[12px] text-white/45">
-						kiami.ai/search
-					</span>
-					<span className="ml-auto flex items-center gap-1.5 text-[11px] text-white/45">
-						<span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#FF5F57]" />
-						REC · live demo
-					</span>
-				</div>
-
-				{/* Video area */}
 				<div className="relative aspect-video">
 					<video
 						ref={ref}
 						className="absolute inset-0 h-full w-full object-cover"
 						src={DEMO_VIDEO_URL}
-						autoPlay
 						loop
 						muted
 						playsInline
@@ -109,40 +95,47 @@ export function TiltedVideo() {
 						onPause={() => setPlaying(false)}
 					/>
 
-					{/* Dim overlay */}
+					{/* Dim overlay — only while the video is paused so the play
+					    button reads clearly; fades out once playback starts. */}
 					<div
-						className="pointer-events-none absolute inset-0"
+						className="pointer-events-none absolute inset-0 transition-opacity duration-300"
 						style={{
+							opacity: playing ? 0 : 1,
 							background:
 								"radial-gradient(circle at 30% 20%, rgba(27,35,51,0.35), rgba(11,18,32,0.65) 70%)",
 						}}
 					/>
 
-					{/* Play / pause control */}
+					{/* Play / pause control. Visible only when (a) the video is
+					    paused AND (b) the user has scrolled the tile close to
+					    the viewport — driven by the same progress value that
+					    powers the tilt + glow. */}
 					<button
 						type="button"
 						onClick={togglePlay}
 						aria-label={playing ? "Pause" : "Play"}
-						className="absolute inset-0 grid place-items-center transition-opacity"
-						style={{ opacity: playing ? 0 : 1 }}
+						className="absolute inset-0 grid place-items-center transition-opacity duration-300"
+						style={{ opacity: playing ? 0 : scrollProgress }}
 					>
 						<span
 							className="grid h-[76px] w-[76px] place-items-center rounded-full bg-white"
 							style={{ boxShadow: "0 12px 32px rgba(30,91,255,0.45)" }}
 						>
-							<Play
-								weight="fill"
-								size={28}
-								color="var(--color-brand)"
-							/>
+							{playing ? (
+								<Pause
+									weight="fill"
+									size={28}
+									color="var(--color-brand)"
+								/>
+							) : (
+								<Play
+									weight="fill"
+									size={28}
+									color="var(--color-brand)"
+								/>
+							)}
 						</span>
 					</button>
-
-					{/* Bottom HUD */}
-					<div className="pointer-events-none absolute inset-x-6 bottom-5 flex items-center justify-between font-mono-display text-[12px] text-white/55">
-						<span>Watch how Kiami works</span>
-						<span>00:08 / 01:48</span>
-					</div>
 				</div>
 			</div>
 		</div>
