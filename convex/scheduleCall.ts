@@ -8,7 +8,7 @@
 //   - DAPTA_WEBHOOK_URL    → e.g. https://api.dapta.ai/api/<id>/kiami
 //   - DAPTA_API_KEY        → x-api-key header value
 //   - KIAMI_TEST_PHONE     → phone we send for every test call (+57...)
-//   - KIAMI_BRAND_NAME     → the searcher's brand (e.g. "Innovaitors")
+//   - KIAMI_BRAND_NAME     → the searcher's brand (free-form, e.g. "Kiami")
 //   - KIAMI_OWNER_EMAIL    → fallback owner email
 
 import { v } from "convex/values";
@@ -58,7 +58,7 @@ export const scheduleCall = action({
 		const url = env("DAPTA_WEBHOOK_URL");
 		const apiKey = env("DAPTA_API_KEY");
 		const phone = args.phone ?? env("KIAMI_TEST_PHONE");
-		const brandName = env("KIAMI_BRAND_NAME", "Innovaitors");
+		const brandName = env("KIAMI_BRAND_NAME", "Kiami");
 		const ownerEmail = env("KIAMI_OWNER_EMAIL", "nicolaslassojr@gmail.com");
 		// Test mode: send the same email for every contact so the webhook
 		// receiver always knows who to follow up with. The synthesizer is

@@ -14,7 +14,7 @@ Kiami es una submission para el **GTM Hackathon** organizado por [LatamBuilds](h
 
 - **Sponsors**: Make, Clay, Anthropic, Cursor, ElevenLabs, Supabase, Miro, Slack, Maca.
 - **Reto**: producto end-to-end que automatice una pieza concreta del GTM, ejecutable en 48 horas.
-- **Submission**: Kiami, construido por [Innovaitors](https://innovaitors.co).
+- **Submission**: Kiami.
 
 ---
 
@@ -112,7 +112,7 @@ GET https://api.dapta.ai/api/<flow-id>/kiami
   &company_owner=<marca-del-vendedor>
   &flow=sales|recruiting
   &tier=high|low
-  &brand_name=Innovaitors
+  &brand_name=Kiami
   &brand_role=asesor comercial|reclutador
 ```
 
@@ -214,6 +214,4 @@ npx convex deploy --yes
 
 ## Créditos
 
-Construido por **Innovaitors** para el GTM Hackathon de LatamBuilds, Bogotá 2026.
-
-Contacto: nicolas@innovaitors.co
+Submission al GTM Hackathon de LatamBuilds, Bogotá 2026.
