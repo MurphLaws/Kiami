@@ -68,30 +68,368 @@ const MAX_SYNTHESIZED = 5;
 const SEBASTIAN_LEAD: NormalizedLead = {
 	source: "bettercontact",
 	full_name: "Sebastian Velandia Acevedo",
-	job_title: "Python & AI Engineer · Electronic Engineering @ UNAL",
-	seniority: "senior",
+	job_title: "Tech Lead · Customer Experience Engineering",
+	seniority: "lead",
 	location: "Bogotá, Colombia",
 	linkedin_url: "https://www.linkedin.com/in/sebastianvelandiaacevedo/",
-	company_name: "Universidad Nacional de Colombia",
-	company_domain: "unal.edu.co",
-	email: "sebastianvelandiaacevedo@gmail.com",
+	company_name: "Pana Bank",
+	company_domain: "panabank.co",
+	email: "sebastian.velandia@panabank.co",
 	phone: "+573122153292",
 	pinned: true,
+	// Stays in the low-profile lane so the row sits at the top of the
+	// list with the clean white background — the demo recording walks
+	// down from him into the blue high-profile cluster underneath.
 	high_profile: false,
 	match_strictness: "strict",
 	strict_misses: 0,
-	tags: ["python", "ai", "bogota", "fastapi", "engineering"],
+	tags: ["fintech", "voice-ai", "pqr", "bogota", "tech-lead"],
 	classification: {
-		kind: "candidate",
-		role_fit: "high",
-		seniority_match: "match",
-		recommendation: "screen",
+		kind: "lead",
+		tier: "hot",
+		icp_fit: "high",
+		confidence: 0.95,
 		reasoning:
-			"Open to work · Python + AI engineer at UNAL · Bogotá-based · building Integra.",
+			"Tech Lead owning customer-service infra at Pana Bank — Colombian challenger neobank with ~1.8M users. Actively scoping voice AI vendors to absorb the ~40k/month PQR backlog (blocked cards, failed transfers, account recovery).",
 	},
 	score: 100,
 	raw: {},
 };
+
+// --- Demo override -----------------------------------------------------
+// When the recorded-demo prompt is typed, short-circuit the entire
+// pipeline: wait 15 s (so the trace timing on screen feels like a real
+// remote search), then return a hardcoded slate of Colombian fintech /
+// digital-bank tech leads with Sebastian unshifted at index 0. The 8
+// leads below him are flagged high_profile so they render with the new
+// blue tint and the "View brief" affordance.
+function normalizeBriefForDemo(s: string): string {
+	return s
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/[̀-ͯ]/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+function isDemoQuery(flow: "recruiting" | "sales", brief: string): boolean {
+	if (flow !== "sales") return false;
+	const n = normalizeBriefForDemo(brief);
+	const mentionsLead = n.includes("tech lead");
+	const mentionsFintechOrBank =
+		n.includes("fintech") || n.includes("banco") || n.includes("bank");
+	const mentionsColombiaOrVirtual =
+		n.includes("colombi") || n.includes("virtual");
+	return mentionsLead && mentionsFintechOrBank && mentionsColombiaOrVirtual;
+}
+
+const DEMO_LEADS: NormalizedLead[] = [
+	{
+		source: "bettercontact",
+		full_name: "Jose Luis Fragozo Avendaño",
+		job_title: "Tech Lead · Payments Platform",
+		seniority: "lead",
+		location: "Bogotá, Colombia",
+		linkedin_url: "https://www.linkedin.com/in/jlfragozo/",
+		company_name: "Lulo X",
+		company_domain: "lulobank.com",
+		email: "jose.fragozo@lulobank.com",
+		phone: "+573145678901",
+		high_profile: true,
+		match_strictness: "strict",
+		strict_misses: 0,
+		tags: ["tech-lead", "fintech", "payments", "bogota", "banking"],
+		classification: {
+			kind: "lead",
+			tier: "hot",
+			icp_fit: "high",
+			confidence: 0.94,
+			reasoning:
+				"Owns the payments-platform team at Lulo X. Recent LinkedIn posts on contact-center automation make him a strong fit for a voice-AI conversation.",
+		},
+		brief: {
+			why_they_fit:
+				"Tech lead at a Colombian digital bank handling card disputes and transfer issues at scale — the exact PQR surface area where voice AI compounds.",
+			suggested_opener:
+				"Saw your post on automating tier-1 customer-service flows at Lulo X — curious how you're sizing the volume coming through the IVR vs. chat.",
+		},
+		score: 95,
+		raw: {},
+	},
+	{
+		source: "bettercontact",
+		full_name: "Andres Felipe Foglia Ardila",
+		job_title: "Engineering Lead · Customer Platform",
+		seniority: "lead",
+		location: "Bogotá, Colombia",
+		linkedin_url: "https://www.linkedin.com/in/affoglia/",
+		company_name: "Bold",
+		company_domain: "bold.co",
+		email: "andres.foglia@bold.co",
+		phone: "+573156789012",
+		high_profile: true,
+		match_strictness: "strict",
+		strict_misses: 0,
+		tags: ["tech-lead", "fintech", "customer-platform", "bogota", "banking"],
+		classification: {
+			kind: "lead",
+			tier: "hot",
+			icp_fit: "high",
+			confidence: 0.92,
+			reasoning:
+				"Leads the customer-platform group at Bold — exactly the team that owns merchant PQR routing and escalations.",
+		},
+		brief: {
+			why_they_fit:
+				"Bold's merchant-side support volume has 3x'd in 12 months — voice agents on tier-1 disputes are a natural next investment.",
+			suggested_opener:
+				"How are you thinking about handling the merchant PQR surge on the customer-platform side? Would love to compare notes.",
+		},
+		score: 93,
+		raw: {},
+	},
+	{
+		source: "bettercontact",
+		full_name: "Laura Helena Cabra Acela",
+		job_title: "Tech Lead · Mobile Engineering",
+		seniority: "lead",
+		location: "Bogotá, Colombia",
+		linkedin_url: "https://www.linkedin.com/in/lauracabra/",
+		company_name: "Movii",
+		company_domain: "movii.com.co",
+		email: "laura.cabra@movii.com.co",
+		phone: "+573167890123",
+		high_profile: true,
+		match_strictness: "strict",
+		strict_misses: 0,
+		tags: ["tech-lead", "fintech", "mobile", "bogota", "banking"],
+		classification: {
+			kind: "lead",
+			tier: "warm",
+			icp_fit: "high",
+			confidence: 0.88,
+			reasoning:
+				"Mobile-engineering tech lead at Movii. The in-app support touchpoints are her surface area — strong fit for an embedded voice/chat agent.",
+		},
+		brief: {
+			why_they_fit:
+				"Movii's in-app chat already routes a meaningful share of PQRs. A voice agent inside the same flow shortens resolution time on cards and topups.",
+			suggested_opener:
+				"What's the biggest pain point on the in-app support side at Movii right now? Triage, routing, or response latency?",
+		},
+		score: 90,
+		raw: {},
+	},
+	{
+		source: "bettercontact",
+		full_name: "Mateo Ceballos Bermúdez",
+		job_title: "Tech Lead · Backend",
+		seniority: "lead",
+		location: "Medellín, Colombia",
+		linkedin_url: "https://www.linkedin.com/in/mateoceballos/",
+		company_name: "Tpaga",
+		company_domain: "tpaga.co",
+		email: "mateo.ceballos@tpaga.co",
+		phone: "+573178901234",
+		high_profile: true,
+		match_strictness: "strict",
+		strict_misses: 0,
+		tags: ["tech-lead", "fintech", "backend", "medellin", "banking"],
+		classification: {
+			kind: "lead",
+			tier: "warm",
+			icp_fit: "high",
+			confidence: 0.86,
+			reasoning:
+				"Backend tech lead at Tpaga in Medellín. Owns the dispute & refund APIs — primary integration surface for a voice-agent backend.",
+		},
+		brief: {
+			why_they_fit:
+				"The refund & dispute pipeline at Tpaga is heavily ticket-driven. A voice agent that resolves the top 30% of cases without human handoff is a clear ROI play.",
+			suggested_opener:
+				"Are dispute & refund volumes still the biggest driver of agent workload at Tpaga? Curious where you're spending your queue time.",
+		},
+		score: 88,
+		raw: {},
+	},
+	{
+		source: "bettercontact",
+		full_name: "Camila Rivera Salazar",
+		job_title: "Tech Lead · Core Banking",
+		seniority: "lead",
+		location: "Bogotá, Colombia",
+		linkedin_url: "https://www.linkedin.com/in/camilariverasalazar/",
+		company_name: "Daviplata",
+		company_domain: "daviplata.com",
+		email: "camila.rivera@daviplata.com",
+		phone: "+573189012345",
+		high_profile: true,
+		match_strictness: "strict",
+		strict_misses: 0,
+		tags: ["tech-lead", "fintech", "core-banking", "bogota", "banking"],
+		classification: {
+			kind: "lead",
+			tier: "hot",
+			icp_fit: "high",
+			confidence: 0.93,
+			reasoning:
+				"Daviplata processes one of the largest PQR volumes among Colombian digital wallets. A core-banking tech lead is the natural integration owner.",
+		},
+		brief: {
+			why_they_fit:
+				"Daviplata has the volume to make voice-AI economics work on the first quarter — and Camila owns the rails the agent needs to read.",
+			suggested_opener:
+				"What does the PQR routing diagram look like inside Daviplata today? Curious how much sits on the core-banking side.",
+		},
+		score: 94,
+		raw: {},
+	},
+	{
+		source: "bettercontact",
+		full_name: "Daniel Ospina Marín",
+		job_title: "Engineering Manager · Cards & Payments",
+		seniority: "manager",
+		location: "Bogotá, Colombia",
+		linkedin_url: "https://www.linkedin.com/in/danielospinamarin/",
+		company_name: "RappiPay",
+		company_domain: "rappipay.co",
+		email: "daniel.ospina@rappipay.co",
+		phone: "+573190123456",
+		high_profile: true,
+		match_strictness: "strict",
+		strict_misses: 0,
+		tags: ["engineering-manager", "fintech", "cards", "bogota", "banking"],
+		classification: {
+			kind: "lead",
+			tier: "warm",
+			icp_fit: "high",
+			confidence: 0.85,
+			reasoning:
+				"RappiPay's cards team is the single largest PQR driver. Daniel manages the platform underneath.",
+		},
+		brief: {
+			why_they_fit:
+				"Card-related PQRs (blocks, fraud holds, missing transactions) are the highest-volume queue. A voice agent on tier-1 of this queue is the textbook deployment.",
+			suggested_opener:
+				"Curious how RappiPay handles card-block PQRs end-to-end today — are you mostly handling them through the in-app chat or the call center?",
+		},
+		score: 87,
+		raw: {},
+	},
+	{
+		source: "bettercontact",
+		full_name: "Valentina Rojas Restrepo",
+		job_title: "Tech Lead · Risk Platform",
+		seniority: "lead",
+		location: "Medellín, Colombia",
+		linkedin_url: "https://www.linkedin.com/in/valentinarojas/",
+		company_name: "Nequi",
+		company_domain: "nequi.com.co",
+		email: "valentina.rojas@nequi.com.co",
+		phone: "+573201234567",
+		high_profile: true,
+		match_strictness: "strict",
+		strict_misses: 0,
+		tags: ["tech-lead", "fintech", "risk", "medellin", "banking"],
+		classification: {
+			kind: "lead",
+			tier: "warm",
+			icp_fit: "medium",
+			confidence: 0.81,
+			reasoning:
+				"Owns the risk-platform layer at Nequi. Less direct PQR ownership, but a key stakeholder when voice agents touch fraud/blocked accounts.",
+		},
+		brief: {
+			why_they_fit:
+				"A voice agent that resolves account-recovery PQRs has to talk to the risk-platform. Valentina is the gatekeeper for that integration.",
+			suggested_opener:
+				"How does Nequi think about the handoff between the support side and the risk-platform when an account is blocked? Curious where the boundary sits.",
+		},
+		score: 82,
+		raw: {},
+	},
+	{
+		source: "bettercontact",
+		full_name: "Andrés Camilo Pérez León",
+		job_title: "Engineering Lead · Platform",
+		seniority: "lead",
+		location: "Bogotá, Colombia",
+		linkedin_url: "https://www.linkedin.com/in/andrescamiloperez/",
+		company_name: "Tyba",
+		company_domain: "tyba.com.co",
+		email: "andres.perez@tyba.com.co",
+		phone: "+573212345678",
+		high_profile: true,
+		match_strictness: "strict",
+		strict_misses: 0,
+		tags: ["tech-lead", "fintech", "platform", "bogota", "banking"],
+		classification: {
+			kind: "lead",
+			tier: "warm",
+			icp_fit: "medium",
+			confidence: 0.78,
+			reasoning:
+				"Tyba is investment-focused — PQR volume is lower than at Daviplata/Nequi, but the platform team owns the support tooling and Andrés is the right buyer.",
+		},
+		brief: {
+			why_they_fit:
+				"Tyba's PQR volume is small but high-stakes (each one touches money in motion). A voice agent that triages calmly is a brand investment.",
+			suggested_opener:
+				"What does the platform team at Tyba prioritise for support tooling in 2026? Curious whether voice agents are on the radar.",
+		},
+		score: 79,
+		raw: {},
+	},
+];
+
+function buildDemoSearchResult(): SearchResult {
+	const leads: NormalizedLead[] = [
+		{ ...SEBASTIAN_LEAD },
+		...DEMO_LEADS.map((l) => ({ ...l, raw: {} })),
+	];
+	return {
+		rationale:
+			"Senior engineering leadership at Colombian fintechs and digital banks — ICP-aligned with voice-AI buyers handling high-volume PQR workloads.",
+		filters_used: {
+			bc: { strict: {}, lax: {}, limit: 50 },
+			apollo: {
+				strict: {
+					person_titles: ["tech lead", "engineering manager"],
+					person_seniorities: ["director", "manager"],
+					person_locations: ["Colombia"],
+					organization_locations: ["Colombia"],
+					organization_num_employees_ranges: [],
+					q_keywords: "fintech",
+					include_similar_titles: false,
+				},
+				lax: {
+					person_titles: [
+						"tech lead",
+						"engineering manager",
+						"engineering lead",
+					],
+					person_seniorities: ["director", "manager"],
+					person_locations: ["Colombia"],
+					organization_locations: ["Colombia"],
+					organization_num_employees_ranges: [],
+					q_keywords: "fintech bank",
+					include_similar_titles: true,
+				},
+			},
+			rationale:
+				"Senior engineering leadership at Colombian fintechs and digital banks.",
+		},
+		bc: {
+			request_id: "demo-bcr-2026-001",
+			status: "completed",
+			leads_found: 6,
+			credits_consumed: 6,
+			credits_left: 188,
+		},
+		apollo: { ran: true, leads_found: 2 },
+		leads,
+	};
+}
 // Up to this many strict-filter slots can fail before a lead is demoted
 // from high-profile to low-profile. Set to 2 so high_profile stays
 // "more affine than low" without requiring an exact match.
@@ -125,6 +463,16 @@ export const runSearch = action({
 	},
 	returns: v.any(),
 	handler: async (_ctx, args): Promise<SearchResult> => {
+		// Recorded-demo short-circuit. When the canned Spanish prompt is
+		// typed (sales flow, mentions "tech lead" + fintech/bank +
+		// Colombia/virtual), skip the real pipeline, sleep 15s so the
+		// trace overlay feels like a real remote search, and return the
+		// pre-baked slate.
+		if (isDemoQuery(args.flow, args.brief)) {
+			await new Promise((resolve) => setTimeout(resolve, 15_000));
+			return buildDemoSearchResult();
+		}
+
 		// Filter inference is the only LLM call that can take the whole
 		// search down (everything else has a try/catch around it). If
 		// the OpenAI quota is exhausted or the gateway is down, we fall
