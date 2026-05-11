@@ -131,7 +131,7 @@ function ResultsPage() {
 				const message = describeResponse(res);
 				if (ok) {
 					toast.success(`Call scheduled for ${lead.full_name}`, {
-						description: message,
+						description: `We'll call them at the best time for their profile (suggested: 16–19h local).`,
 					});
 					// Hold the row at the green "scheduled" state so the
 					// user has a visible record of which leads they've
@@ -203,7 +203,9 @@ function ResultsPage() {
 		});
 
 		if (fail === 0) {
-			toast.success(`Scheduled ${ok} call${ok === 1 ? "" : "s"}`);
+			toast.success(`Scheduled ${ok} call${ok === 1 ? "" : "s"}`, {
+				description: `We'll call each lead at the best time for their profile (suggested: 16–19h local).`,
+			});
 			setGlobalState("scheduled");
 		} else {
 			toast.error(`Scheduled ${ok} of ${lowIdx.length}; ${fail} failed`);
