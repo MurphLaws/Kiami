@@ -220,6 +220,44 @@ body {
   -webkit-mask-image: linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%);
 }
 
+/* Hero video scrubber — invisible <input type="range"> overlay; the
+   visible track + fill are rendered as siblings underneath. We only
+   style the thumb so dragging feels responsive. */
+.kiami-video-scrub {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+}
+.kiami-video-scrub::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 12px;
+}
+.kiami-video-scrub::-moz-range-track {
+  background: transparent;
+  height: 12px;
+}
+.kiami-video-scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -1px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid var(--color-brand);
+  box-shadow: 0 2px 6px rgba(11, 18, 32, 0.35);
+  cursor: pointer;
+}
+.kiami-video-scrub::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid var(--color-brand);
+  box-shadow: 0 2px 6px rgba(11, 18, 32, 0.35);
+  cursor: pointer;
+}
+
 .font-heading {
   font-family: 'Geist Variable', system-ui, sans-serif;
   letter-spacing: -0.025em;

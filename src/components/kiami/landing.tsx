@@ -3,24 +3,17 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import {
 	MagnifyingGlass,
 	Sparkle,
-	ChatCircle,
-	ChartLineUp,
-	Tray,
-	Target,
-	Path,
-	Graph,
 	Briefcase,
 	Megaphone,
+	GithubLogo,
+	ArrowUpRight,
 } from "@phosphor-icons/react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useMode, type Flow } from "./flow";
 import { saveBrief } from "@/hooks/use-search";
 import { BrandLogo } from "./brand-logo";
-import { TypePill } from "./type-pill";
-import { IconTile } from "./icon-tile";
 import { KiamiLogo } from "./logo";
 import { RotatingWord } from "./rotating-word";
 import { TiltedVideo } from "./tilted-video";
@@ -31,9 +24,7 @@ export function LandingPage() {
 			<Hero />
 			<TiltedVideo />
 			<LogoStrip />
-			<TwoWorkflows />
-			<HowItWorks />
-			<Quote />
+			<Hackathon />
 			<CTABand />
 			<FooterBlock />
 		</div>
@@ -314,179 +305,114 @@ function LogoStrip() {
 	);
 }
 
-function TwoWorkflows() {
-	const recItems = [
-		{
-			title: "Natural-language sourcing",
-			body: "Describe the ideal candidate in plain English. Kiami handles the boolean mapping.",
-		},
-		{
-			title: "Experience graphing",
-			body: "Visualize career trajectories to predict readiness for senior or leadership roles.",
-		},
-		{
-			title: "Outreach-ready exports",
-			body: "Push shortlists straight to your ATS or sequencer with structured fields.",
-		},
-	];
-	const salesItems = [
-		{
-			title: "Intent-based targeting",
-			body: "Identify decision makers before they start evaluating competitors.",
-		},
-		{
-			title: "Account mapping",
-			body: "Automatically generate buying committees for enterprise accounts.",
-		},
-		{
-			title: "CRM-native handoff",
-			body: "Drop ranked accounts into Salesforce or HubSpot with reasoning attached.",
-		},
-	];
-
+function Hackathon() {
 	return (
-		<section className="bg-paper px-8 py-20">
+		<section className="border-y bg-paper px-8 py-20">
 			<div className="mx-auto max-w-[1100px]">
-				<div className="mb-12">
-					<span className="eyebrow">What you get</span>
-					<h2 className="mt-3 font-heading text-[40px] font-semibold leading-[1.1] tracking-[-0.025em]">
-						One platform, two workflows.
+				<div className="mb-12 flex flex-col items-start gap-3">
+					<span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold tracking-[0.14em] uppercase">
+						<span
+							className="inline-block h-1.5 w-1.5 rounded-full"
+							style={{ background: "var(--color-brand)" }}
+						/>
+						Built for the hackathon
+					</span>
+					<h2 className="max-w-[760px] font-heading text-[40px] font-semibold leading-[1.08] tracking-[-0.025em]">
+						The bet behind Kiami.
 					</h2>
-					<p className="mt-2 max-w-[520px] text-[16px] text-muted-foreground">
-						Purpose-built surfaces for the way your teams actually work — same
-						pipeline, different vocabulary.
+					<p className="max-w-[620px] text-[16px] text-muted-foreground">
+						One brief in plain English replaces hours of repetitive sourcing
+						and prospecting — and an AI voice agent closes the loop with a
+						booked meeting.
 					</p>
 				</div>
-				<div className="grid grid-cols-1 gap-x-12 md:grid-cols-2 md:divide-x md:divide-[var(--color-border)]">
-					<WorkflowColumn label="Recruiting" items={recItems} />
-					<WorkflowColumn label="Lead Finder" items={salesItems} pl />
-				</div>
-			</div>
-		</section>
-	);
-}
 
-function WorkflowColumn({
-	label,
-	items,
-	pl,
-}: {
-	label: string;
-	items: Array<{ title: string; body: string }>;
-	pl?: boolean;
-}) {
-	return (
-		<div className={pl ? "md:pl-12" : ""}>
-			<div className="mb-6 inline-flex items-center gap-2">
-				<span
-					className="inline-block h-1.5 w-1.5 rounded-full"
-					style={{ background: "var(--color-brand)" }}
-				/>
-				<span className="eyebrow">{label}</span>
-			</div>
-			<ul className="grid">
-				{items.map((it, i) => (
-					<li
-						key={i}
-						className="grid grid-cols-[44px_1fr] items-start gap-4 border-t py-5 last:border-b"
-					>
+				<div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+					<HackathonCard
+						kicker="01 · Problem"
+						title="Cold outreach burns hours that don't need a human."
+						body="Cold leads and cold candidates convert at low rates yet still soak up hours of repetitive work from sales and recruiting teams — tasks that don't require any prior context and can be handled by an agent."
+						accent="muted"
+					/>
+					<HackathonCard
+						kicker="02 · Solution"
+						title="A natural-language brief, ranked results, and a voice agent that books the meeting."
+						body="Kiami takes a brief in plain English, sources cold leads or candidates, classifies them as high or low fit so the team focuses on what matters, and lets an AI voice agent do the outreach and schedule the call."
+						accent="brand"
+					/>
+				</div>
+
+				<a
+					href="https://github.com/MurphLaws/Kiami"
+					target="_blank"
+					rel="noreferrer noopener"
+					className="group mt-10 flex items-center justify-between gap-6 rounded-2xl border bg-card px-6 py-5 transition-colors hover:border-[var(--color-brand)]"
+				>
+					<div className="flex items-center gap-4">
 						<span
-							className="font-mono-display tnum text-[12px] tracking-[0.04em]"
-							style={{ color: "var(--color-brand)" }}
+							className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-white"
+							style={{ background: "var(--color-ink-strong)" }}
 						>
-							{String(i + 1).padStart(2, "0")}
+							<GithubLogo size={22} weight="fill" />
 						</span>
 						<div>
-							<div className="font-heading text-[18px] font-semibold leading-tight tracking-[-0.015em]">
-								{it.title}
+							<div className="font-heading text-[16px] font-semibold leading-tight tracking-[-0.01em]">
+								Source on GitHub
 							</div>
-							<div className="mt-1.5 text-[14px] leading-snug text-muted-foreground">
-								{it.body}
+							<div className="font-mono-display text-[13px] text-muted-foreground">
+								github.com/MurphLaws/Kiami
 							</div>
 						</div>
-					</li>
-				))}
-			</ul>
-		</div>
-	);
-}
-
-function HowItWorks() {
-	const steps = [
-		{
-			n: "01",
-			title: "Describe what you need",
-			body: "Paste a JD or ICP, or just type. No filters, no schemas.",
-		},
-		{
-			n: "02",
-			title: "Agent runs the search",
-			body: "Kiami reasons through trajectories, intent, and fit — not just keywords.",
-		},
-		{
-			n: "03",
-			title: "Review ranked results",
-			body: "Each match arrives with the reasoning behind it. Iterate by replying.",
-		},
-	];
-	return (
-		<section className="border-y bg-muted px-8 py-14">
-			<div className="mx-auto max-w-[1100px]">
-				<div className="mb-9">
-					<span className="text-[12px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
-						How it works
+					</div>
+					<span
+						className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-brand)]"
+						aria-hidden
+					>
+						<ArrowUpRight size={18} />
 					</span>
-					<h2 className="mt-2 max-w-[520px] font-heading text-[40px] font-semibold leading-tight tracking-tight">
-						From a sentence to a shortlist in minutes.
-					</h2>
-				</div>
-				<div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-					{steps.map((s) => (
-						<div
-							key={s.n}
-							className="border-t pt-4"
-							style={{ borderTopColor: "var(--color-border-strong)" }}
-						>
-							<div
-								className="mb-3 font-mono-display text-[12px]"
-								style={{ color: "var(--color-brand)" }}
-							>
-								{s.n}
-							</div>
-							<div className="mb-2 font-heading text-xl font-semibold">
-								{s.title}
-							</div>
-							<div className="text-[15px] text-muted-foreground">{s.body}</div>
-						</div>
-					))}
-				</div>
+				</a>
 			</div>
 		</section>
 	);
 }
 
-function Quote() {
+function HackathonCard({
+	kicker,
+	title,
+	body,
+	accent,
+}: {
+	kicker: string;
+	title: string;
+	body: string;
+	accent: "brand" | "muted";
+}) {
+	const isBrand = accent === "brand";
 	return (
-		<section className="px-8 py-18">
-			<div className="mx-auto max-w-[880px] text-center">
-				<span className="text-[12px] font-semibold tracking-[0.10em] text-muted-foreground uppercase">
-					Customer story
-				</span>
-				<p className="my-6 font-heading text-[32px] font-medium leading-tight tracking-tight">
-					“We replaced four contractors and a 30-tab Boolean cheat sheet with
-					Kiami. Time-to-shortlist dropped from days to under an hour.”
-				</p>
-				<div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
-					<div className="grid h-9 w-9 place-items-center rounded-full bg-muted text-[13px] font-semibold text-foreground">
-						JM
-					</div>
-					<div className="text-left">
-						<div className="font-medium text-foreground">Jordan Mata</div>
-						<div>Head of Talent · Northwind</div>
-					</div>
-				</div>
-			</div>
-		</section>
+		<div
+			className="relative flex flex-col gap-4 overflow-hidden rounded-2xl border p-7"
+			style={{
+				background: isBrand ? "var(--color-brand-tint)" : "var(--color-paper)",
+				borderColor: isBrand
+					? "rgba(30,91,255,0.25)"
+					: "var(--color-border)",
+			}}
+		>
+			<span
+				className="font-mono-display text-[12px] tracking-[0.06em] uppercase"
+				style={{
+					color: isBrand ? "var(--color-brand-2)" : "var(--color-muted-2)",
+				}}
+			>
+				{kicker}
+			</span>
+			<h3 className="font-heading text-[22px] font-semibold leading-[1.15] tracking-[-0.015em]">
+				{title}
+			</h3>
+			<p className="text-[15px] leading-relaxed text-muted-foreground">
+				{body}
+			</p>
+		</div>
 	);
 }
 
