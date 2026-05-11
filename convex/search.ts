@@ -765,7 +765,7 @@ export const runSearch = action({
 		const DEMO_RECORDING_MODE: boolean = true;
 		if (DEMO_RECORDING_MODE) {
 			void args;
-			await new Promise((resolve) => setTimeout(resolve, 15_000));
+			await new Promise((resolve) => setTimeout(resolve, 7_000));
 			return buildDemoSearchResult();
 		}
 
