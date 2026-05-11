@@ -135,14 +135,8 @@ function Hero() {
 					<br />
 					Start finding people
 				</h1>
-				<p className="mx-auto mt-6 max-w-[620px] text-[17px] leading-snug text-muted-foreground">
-					Kiami replaces complex boolean strings and endless{" "}
-					<span
-						className="font-medium"
-						style={{ color: "var(--color-brand)" }}
-					>
-						filter
-					</span>{" "}
+				<p className="mx-auto mt-6 max-w-[620px] text-[17px] leading-snug text-foreground">
+					Kiami replaces complex boolean strings and endless filter
 					toggling with intelligent natural-language search, connecting
 					you directly with the exact{" "}
 					{flow === "sales" ? "buyers" : "talent"} you need.

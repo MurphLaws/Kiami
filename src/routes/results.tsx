@@ -721,6 +721,7 @@ function EditorialRow({
 			className={cn(
 				"relative border-b last:border-b-0",
 				isSynth && "bg-[var(--color-brand-tint)]/30",
+				isHigh && !isSynth && "bg-[var(--color-brand-tint)]/20",
 			)}
 		>
 			{isSynth && (
@@ -728,6 +729,13 @@ function EditorialRow({
 					aria-hidden
 					className="pointer-events-none absolute inset-y-0 left-0 w-[3px]"
 					style={{ background: "var(--color-brand)" }}
+				/>
+			)}
+			{isHigh && !isSynth && (
+				<span
+					aria-hidden
+					className="pointer-events-none absolute inset-y-0 left-0 w-[2px]"
+					style={{ background: "var(--color-brand)", opacity: 0.5 }}
 				/>
 			)}
 			<div className="grid grid-cols-[36px_minmax(0,1.6fr)_minmax(0,1fr)_120px_150px_28px] items-center gap-4 px-4 py-3.5 transition-colors hover:bg-muted/40">

@@ -1,19 +1,6 @@
 import { useEffect, useState } from "react";
 
-// Six words, all exactly 7 letters, all read as "structured sourcing
-// tooling that Kiami replaces". 7 is the sweet-spot length here:
-// short enough that the hero stays on one line at h1 sizes, long
-// enough that there are plenty of synonyms to pick from. Equal
-// length keeps the placeholder width stable so the line never
-// looks lopsided.
-const DEFAULT = [
-	"filters",
-	"queries",
-	"funnels",
-	"toggles",
-	"buckets",
-	"cohorts",
-];
+const DEFAULT = ["filters", "queries", "sheets"];
 
 export function RotatingWord({
 	words = DEFAULT,
@@ -24,7 +11,7 @@ export function RotatingWord({
 }) {
 	const [i, setI] = useState(0);
 	useEffect(() => {
-		const t = setInterval(() => setI((v) => (v + 1) % words.length), 2200);
+		const t = setInterval(() => setI((v) => (v + 1) % words.length), 4200);
 		return () => clearInterval(t);
 	}, [words.length]);
 
