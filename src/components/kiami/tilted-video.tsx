@@ -154,30 +154,29 @@ export function TiltedVideo() {
 					/>
 
 					{/* Big center play button — only shown while paused AND while
-					    the user has scrolled the tile close to viewport center. */}
+					    the user has scrolled the tile close to viewport center.
+					    Positioned (not inset-0) so it doesn't shadow the bottom
+					    control bar's hit area. */}
 					<button
 						type="button"
 						onClick={togglePlay}
-						aria-label={playing ? "Pause" : "Play"}
-						className="absolute inset-0 grid place-items-center transition-opacity duration-300"
+						aria-label="Play"
+						className="absolute top-1/2 left-1/2 grid h-[76px] w-[76px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white transition-opacity duration-300"
 						style={{
 							opacity: playing ? 0 : scrollProgress,
-							pointerEvents: playing ? "none" : "auto",
+							pointerEvents: playing || scrollProgress < 0.05 ? "none" : "auto",
+							boxShadow: "0 12px 32px rgba(30,91,255,0.45)",
 						}}
 					>
-						<span
-							className="grid h-[76px] w-[76px] place-items-center rounded-full bg-white"
-							style={{ boxShadow: "0 12px 32px rgba(30,91,255,0.45)" }}
-						>
-							<Play weight="fill" size={28} color="var(--color-brand)" />
-						</span>
+						<Play weight="fill" size={28} color="var(--color-brand)" />
 					</button>
 
 					{/* Control bar — play/pause, scrubber, time, mute. Sits on a
 					    gradient so it stays legible over light frames. Visible
-					    when paused or on hover. */}
+					    when paused or on hover. z-10 keeps it above the big
+					    center play button. */}
 					<div
-						className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 px-4 pt-10 pb-3 transition-opacity duration-200"
+						className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 px-4 pt-10 pb-3 transition-opacity duration-200"
 						style={{
 							opacity: controlsVisible ? 1 : 0,
 							background:
@@ -186,9 +185,9 @@ export function TiltedVideo() {
 					>
 						{/* Scrubber */}
 						<div className="pointer-events-auto relative h-3 w-full">
-							<div className="absolute top-1/2 left-0 right-0 h-[3px] -translate-y-1/2 rounded-full bg-white/25" />
+							<div className="pointer-events-none absolute top-1/2 left-0 right-0 h-[3px] -translate-y-1/2 rounded-full bg-white/25" />
 							<div
-								className="absolute top-1/2 left-0 h-[3px] -translate-y-1/2 rounded-full"
+								className="pointer-events-none absolute top-1/2 left-0 h-[3px] -translate-y-1/2 rounded-full"
 								style={{
 									width: `${seekPct}%`,
 									background: "var(--color-brand)",
