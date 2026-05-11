@@ -382,10 +382,304 @@ const DEMO_LEADS: NormalizedLead[] = [
 	},
 ];
 
+// Procedural fillers for the demo slate. The hand-written DEMO_LEADS
+// above sit at the top of the list with full briefs; these add bulk so
+// the result count feels like a real-world search.
+const DEMO_FIRST_NAMES = [
+	"Andrés Felipe",
+	"Camilo",
+	"Daniel",
+	"Diego",
+	"Esteban",
+	"Felipe",
+	"Gabriel",
+	"Javier",
+	"Jorge",
+	"Juan David",
+	"Juan Pablo",
+	"Julián",
+	"Mateo",
+	"Nicolás",
+	"Santiago",
+	"Sergio",
+	"Tomás",
+	"Cristian",
+	"Iván",
+	"Pablo",
+	"Alejandra",
+	"Ana María",
+	"Camila",
+	"Carolina",
+	"Daniela",
+	"Diana",
+	"Isabella",
+	"Juliana",
+	"Laura",
+	"Lina",
+	"Manuela",
+	"Mariana",
+	"Natalia",
+	"Sara",
+	"Sofía",
+	"Valentina",
+	"Verónica",
+	"Paola",
+];
+
+const DEMO_LAST_NAMES = [
+	"Acosta",
+	"Álvarez",
+	"Arango",
+	"Arias",
+	"Bedoya",
+	"Beltrán",
+	"Botero",
+	"Cárdenas",
+	"Castaño",
+	"Castro",
+	"Cifuentes",
+	"Contreras",
+	"Delgado",
+	"Díaz",
+	"Duarte",
+	"Escobar",
+	"Espinosa",
+	"Forero",
+	"Franco",
+	"García",
+	"Gil",
+	"Giraldo",
+	"Gómez",
+	"González",
+	"Guerrero",
+	"Gutiérrez",
+	"Henao",
+	"Hernández",
+	"Herrera",
+	"Jaramillo",
+	"Jiménez",
+	"Lara",
+	"López",
+	"Lozano",
+	"Martínez",
+	"Mejía",
+	"Mendoza",
+	"Molina",
+	"Montoya",
+	"Moreno",
+	"Muñoz",
+	"Naranjo",
+	"Nieto",
+	"Ocampo",
+	"Ochoa",
+	"Ordóñez",
+	"Orozco",
+	"Ortiz",
+	"Ospina",
+	"Pacheco",
+	"Pardo",
+	"Parra",
+	"Peña",
+	"Pérez",
+	"Pineda",
+	"Quintero",
+	"Ramírez",
+	"Ramos",
+	"Rendón",
+	"Restrepo",
+	"Ríos",
+	"Rivera",
+	"Rodríguez",
+	"Rojas",
+	"Romero",
+	"Rubio",
+	"Salazar",
+	"Sánchez",
+	"Sarmiento",
+	"Sierra",
+	"Silva",
+	"Suárez",
+	"Tamayo",
+	"Torres",
+	"Trujillo",
+	"Valencia",
+	"Vargas",
+	"Vásquez",
+	"Vega",
+	"Velásquez",
+	"Villa",
+	"Villegas",
+	"Yepes",
+	"Zapata",
+];
+
+const DEMO_EMPLOYERS = [
+	{ name: "Lulo X", domain: "lulobank.com" },
+	{ name: "Bold", domain: "bold.co" },
+	{ name: "Movii", domain: "movii.com.co" },
+	{ name: "Tpaga", domain: "tpaga.co" },
+	{ name: "Daviplata", domain: "daviplata.com" },
+	{ name: "RappiPay", domain: "rappipay.co" },
+	{ name: "Nequi", domain: "nequi.com.co" },
+	{ name: "Tyba", domain: "tyba.com.co" },
+	{ name: "NuColombia", domain: "nu.com.co" },
+	{ name: "Ualá Colombia", domain: "uala.com.co" },
+	{ name: "Sempli", domain: "sempli.co" },
+	{ name: "Tropipay", domain: "tropipay.com" },
+	{ name: "Banco Falabella Digital", domain: "bancofalabella.com.co" },
+	{ name: "Coink", domain: "coink.com" },
+	{ name: "Powwi", domain: "powwi.com" },
+];
+
+const DEMO_TITLES: Array<{
+	title: string;
+	seniority: string;
+	tag: string;
+}> = [
+	{ title: "Tech Lead · Backend", seniority: "lead", tag: "backend" },
+	{
+		title: "Tech Lead · Mobile Engineering",
+		seniority: "lead",
+		tag: "mobile",
+	},
+	{
+		title: "Tech Lead · Payments Platform",
+		seniority: "lead",
+		tag: "payments",
+	},
+	{ title: "Tech Lead · Risk Platform", seniority: "lead", tag: "risk" },
+	{
+		title: "Tech Lead · Core Banking",
+		seniority: "lead",
+		tag: "core-banking",
+	},
+	{
+		title: "Tech Lead · Customer Platform",
+		seniority: "lead",
+		tag: "customer-platform",
+	},
+	{
+		title: "Engineering Manager · Cards & Payments",
+		seniority: "manager",
+		tag: "cards",
+	},
+	{
+		title: "Engineering Lead · Platform",
+		seniority: "lead",
+		tag: "platform",
+	},
+	{
+		title: "Senior Tech Lead · Infrastructure",
+		seniority: "lead",
+		tag: "infrastructure",
+	},
+	{ title: "Staff Engineer · Identity", seniority: "staff", tag: "identity" },
+];
+
+const DEMO_CITIES = [
+	"Bogotá, Colombia",
+	"Bogotá, Colombia",
+	"Bogotá, Colombia",
+	"Bogotá, Colombia",
+	"Medellín, Colombia",
+	"Medellín, Colombia",
+	"Cali, Colombia",
+	"Barranquilla, Colombia",
+];
+
+function slugifyName(name: string): string {
+	return name
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/[̀-ͯ]/g, "")
+		.replace(/[^a-z]/g, "");
+}
+
+function generateProceduralDemoLeads(
+	count: number,
+	source: "bettercontact" | "apollo",
+	startIndex: number,
+): NormalizedLead[] {
+	const out: NormalizedLead[] = [];
+	const seen = new Set<string>();
+	let i = startIndex;
+	let attempts = 0;
+	while (out.length < count && attempts < count * 20) {
+		attempts++;
+		const first = DEMO_FIRST_NAMES[i % DEMO_FIRST_NAMES.length];
+		const last1 = DEMO_LAST_NAMES[(i * 3 + 1) % DEMO_LAST_NAMES.length];
+		const last2 = DEMO_LAST_NAMES[(i * 7 + 4) % DEMO_LAST_NAMES.length];
+		i++;
+		if (last1 === last2) continue;
+		const fullName = `${first} ${last1} ${last2}`;
+		if (seen.has(fullName)) continue;
+		seen.add(fullName);
+
+		const employer =
+			DEMO_EMPLOYERS[(i * 5 + 2) % DEMO_EMPLOYERS.length];
+		const titleSpec = DEMO_TITLES[(i * 2 + 1) % DEMO_TITLES.length];
+		const city = DEMO_CITIES[(i * 3) % DEMO_CITIES.length];
+		const cityTag = slugifyName(city.split(",")[0]);
+
+		const firstSlug = slugifyName(first.split(" ")[0]);
+		const lastSlug = slugifyName(last1);
+		const phoneTail = String(3100000000 + ((i * 7919) % 99999999)).slice(0, 10);
+		const phone = `+57${phoneTail}`;
+
+		const tier: "hot" | "warm" | "cold" =
+			out.length % 7 === 0
+				? "hot"
+				: out.length % 3 === 0
+					? "warm"
+					: "cold";
+		const icpFit: "high" | "medium" | "low" =
+			out.length % 5 === 0
+				? "high"
+				: out.length % 2 === 0
+					? "medium"
+					: "low";
+		const confidence = 0.55 + ((out.length * 13) % 35) / 100;
+
+		out.push({
+			source,
+			full_name: fullName,
+			job_title: titleSpec.title,
+			seniority: titleSpec.seniority,
+			location: city,
+			linkedin_url: `https://www.linkedin.com/in/${firstSlug}${lastSlug}/`,
+			company_name: employer.name,
+			company_domain: employer.domain,
+			email: `${firstSlug}.${lastSlug}@${employer.domain}`,
+			phone,
+			high_profile: false,
+			match_strictness: "lax",
+			strict_misses: 1 + (out.length % 3),
+			tags: ["tech-lead", "fintech", titleSpec.tag, cityTag, "banking"],
+			classification: {
+				kind: "lead",
+				tier,
+				icp_fit: icpFit,
+				confidence,
+				reasoning: `${titleSpec.tag.replace(/-/g, " ")} owner at ${employer.name}. Plausible buyer for voice-AI on the customer-service surface.`,
+			},
+			score: 60 + ((out.length * 11) % 25),
+			raw: {},
+		});
+	}
+	return out;
+}
+
 function buildDemoSearchResult(): SearchResult {
+	// Layout: Sebastian (pinned, low) + 8 hand-written high-profile leads
+	// (each with a written brief) + 40 procedural BC fillers + 4 procedural
+	// Apollo fillers = 53 leads total.
+	const procBc = generateProceduralDemoLeads(40, "bettercontact", 1);
+	const procApollo = generateProceduralDemoLeads(4, "apollo", 137);
 	const leads: NormalizedLead[] = [
 		{ ...SEBASTIAN_LEAD },
 		...DEMO_LEADS.map((l) => ({ ...l, raw: {} })),
+		...procBc,
+		...procApollo,
 	];
 	return {
 		rationale:
@@ -422,11 +716,11 @@ function buildDemoSearchResult(): SearchResult {
 		bc: {
 			request_id: "demo-bcr-2026-001",
 			status: "completed",
-			leads_found: 6,
-			credits_consumed: 6,
-			credits_left: 188,
+			leads_found: 48,
+			credits_consumed: 48,
+			credits_left: 146,
 		},
-		apollo: { ran: true, leads_found: 2 },
+		apollo: { ran: true, leads_found: 4 },
 		leads,
 	};
 }
