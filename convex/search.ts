@@ -60,6 +60,40 @@ const APOLLO_FALLBACK_THRESHOLD = 30;
 // (no LinkedIn link, "Suggested by AI" pill), but we cap the count
 // so they never dominate the result list.
 const MAX_SYNTHESIZED = 5;
+
+// Hardcoded demo contact — Sebastian. Always prepended to every
+// result set (regardless of brief) so the live demo has a stable
+// row to click on. Marked `pinned: true` so the frontend forwards
+// his phone (+57…) to the Dapta webhook instead of the env default.
+const SEBASTIAN_LEAD: NormalizedLead = {
+	source: "bettercontact",
+	full_name: "Sebastian Velandia Acevedo",
+	job_title: "Python & AI Engineer · Electronic Engineering @ UNAL",
+	seniority: "senior",
+	location: "Bogotá, Colombia",
+	linkedin_url: "https://www.linkedin.com/in/sebastianvelandiaacevedo/",
+	company_name: "Universidad Nacional de Colombia",
+	company_industry: "higher_education",
+	company_domain: "unal.edu.co",
+	company_headcount: 5000,
+	email: "sebastianvelandiaacevedo@gmail.com",
+	phone: "+573122153292",
+	pinned: true,
+	high_profile: false,
+	match_strictness: "strict",
+	strict_misses: 0,
+	tags: ["python", "ai", "bogota", "fastapi", "engineering"],
+	classification: {
+		kind: "candidate",
+		role_fit: "high",
+		seniority_match: "match",
+		recommendation: "screen",
+		reasoning:
+			"Open to work · Python + AI engineer at UNAL · Bogotá-based · building Integra.",
+	},
+	score: 100,
+	raw: {},
+};
 // Up to this many strict-filter slots can fail before a lead is demoted
 // from high-profile to low-profile. Set to 2 so high_profile stays
 // "more affine than low" without requiring an exact match.
@@ -327,6 +361,12 @@ export const runSearch = action({
 			// the whole search.
 			console.error("brief generation failed", briefsRes.reason);
 		}
+
+		// Prepend the pinned demo contact AFTER all LLM-driven steps
+		// so it's never reclassified, re-tagged, or accidentally
+		// promoted to high-profile. He sits at index 0 of the final
+		// list, ahead of every real BC lead.
+		result.leads.unshift({ ...SEBASTIAN_LEAD });
 
 		return result;
 	},

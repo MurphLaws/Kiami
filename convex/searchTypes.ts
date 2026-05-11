@@ -16,6 +16,12 @@ export type NormalizedLead = {
 	// show without spending BC enrichment credits.
 	email?: string;
 	phone?: string;
+	// Pinned leads are hardcoded entries that the server always
+	// prepends to the result list (e.g. the demo's hero contact).
+	// When the user schedules a call on a pinned lead, the frontend
+	// forwards the lead's own phone to the webhook instead of the
+	// env-level test phone.
+	pinned?: boolean;
 	high_profile?: boolean;
 	// Whether this lead also passes the strict reading of the brief
 	// (`strict`) or only the widened lax filters (`lax`). Set server-side

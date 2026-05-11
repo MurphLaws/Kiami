@@ -23,6 +23,7 @@ export type StoredLead = {
 	company_headcount?: number | string;
 	email?: string;
 	phone?: string;
+	pinned?: boolean;
 	high_profile?: boolean;
 	match_strictness?: "strict" | "lax";
 	strict_misses?: number;

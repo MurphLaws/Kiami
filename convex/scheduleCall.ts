@@ -48,12 +48,16 @@ export const scheduleCall = action({
 		// Optional override for the contact's email; defaults to a
 		// deterministic synthesized address since BC strips email PII.
 		email: v.optional(v.string()),
+		// Optional override for the contact's phone. Pinned leads
+		// (the demo's hero contact) pass their own number through so
+		// the webhook fires to the actual person, not the test phone.
+		phone: v.optional(v.string()),
 	},
 	returns: v.any(),
 	handler: async (_ctx, args) => {
 		const url = env("DAPTA_WEBHOOK_URL");
 		const apiKey = env("DAPTA_API_KEY");
-		const phone = env("KIAMI_TEST_PHONE");
+		const phone = args.phone ?? env("KIAMI_TEST_PHONE");
 		const brandName = env("KIAMI_BRAND_NAME", "Innovaitors");
 		const ownerEmail = env("KIAMI_OWNER_EMAIL", "nicolaslassojr@gmail.com");
 		// Test mode: send the same email for every contact so the webhook

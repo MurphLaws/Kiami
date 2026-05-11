@@ -122,6 +122,10 @@ function ResultsPage() {
 					company_domain: lead.company_domain,
 					flow,
 					tier: lead.high_profile ? "high" : "low",
+					// Pinned leads carry a real phone we want the
+					// webhook to dial; everyone else falls through to
+					// the env-level test phone.
+					...(lead.pinned && lead.phone ? { phone: lead.phone } : {}),
 				});
 				const ok = (res as { ok?: boolean })?.ok !== false;
 				const message = describeResponse(res);
