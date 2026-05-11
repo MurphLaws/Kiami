@@ -1,9 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import { MediaPlayer, MediaProvider } from "@vidstack/react";
+import {
+	defaultLayoutIcons,
+	DefaultVideoLayout,
+} from "@vidstack/react/player/layouts/default";
+
+import "@vidstack/react/player/styles/default/theme.css";
+import "@vidstack/react/player/styles/default/layouts/video.css";
 
 const DEMO_VIDEO_URL = "/kiami-demo.mp4";
 
 const MAX_TILT_DEG = 24;
-const MAX_GLOW = 1; // 0..1, scales the glow strength
+const MAX_GLOW = 1;
 
 export function TiltedVideo() {
 	const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -42,19 +50,29 @@ export function TiltedVideo() {
 	const glow = progress * MAX_GLOW;
 	const ambient =
 		"0 40px 80px -30px rgba(11,18,32,0.35), 0 12px 24px -12px rgba(11,18,32,0.18)";
-	const brand = "30,91,255"; // var(--color-brand) as RGB
+	const brand = "30,91,255";
 	const halo =
 		glow > 0
 			? `, 0 0 0 1px rgba(${brand},${(0.18 * glow).toFixed(3)}), 0 30px 90px -10px rgba(${brand},${(0.55 * glow).toFixed(3)}), 0 60px 140px -20px rgba(${brand},${(0.35 * glow).toFixed(3)})`
 			: "";
 
+	// Only apply the rotation when meaningfully tilted; once the user has
+	// scrolled the tile into view we drop the transform entirely so pointer
+	// events through the Vidstack scrubber can never be perturbed by a 3D
+	// rendering context.
+	const transformStyle =
+		tilt > 0.5 ? `rotateX(${tilt}deg)` : undefined;
+
 	return (
-		<div className="px-8 pt-10 pb-20" style={{ perspective: 1600 }}>
+		<div
+			className="px-8 pt-10 pb-20"
+			style={transformStyle ? { perspective: 1600 } : undefined}
+		>
 			<div
 				ref={wrapRef}
 				className="mx-auto max-w-[1040px] overflow-hidden rounded-[18px] border"
 				style={{
-					transform: `rotateX(${tilt}deg)`,
+					transform: transformStyle,
 					transformOrigin: "50% 100%",
 					willChange: "transform, box-shadow",
 					boxShadow: `${ambient}${halo}`,
@@ -62,21 +80,18 @@ export function TiltedVideo() {
 					background: "#0B1220",
 				}}
 			>
-				<div className="relative aspect-video">
-					{/* Native browser controls — play/pause, scrub bar, volume,
-					    fullscreen — all guaranteed to work regardless of the
-					    parent's 3D transform. The custom overlay was eating
-					    clicks; this trades that for the default chrome. */}
-					<video
-						className="absolute inset-0 h-full w-full object-cover"
-						src={DEMO_VIDEO_URL}
-						controls
-						controlsList="nodownload"
-						preload="metadata"
-						playsInline
-						loop
-					/>
-				</div>
+				<MediaPlayer
+					src={DEMO_VIDEO_URL}
+					viewType="video"
+					streamType="on-demand"
+					crossOrigin
+					playsInline
+					aspectRatio="16/9"
+					className="block"
+				>
+					<MediaProvider />
+					<DefaultVideoLayout icons={defaultLayoutIcons} />
+				</MediaPlayer>
 			</div>
 		</div>
 	);
