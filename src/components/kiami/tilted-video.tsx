@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Play } from "@phosphor-icons/react";
 
-const PLACEHOLDER_VIDEO_URL =
-	"https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+const DEMO_VIDEO_URL = "/kiami-demo.mp4";
 
 const MAX_TILT_DEG = 24;
 const MAX_GLOW = 1; // 0..1, scales the glow strength
@@ -100,7 +99,7 @@ export function TiltedVideo() {
 					<video
 						ref={ref}
 						className="absolute inset-0 h-full w-full object-cover"
-						src={PLACEHOLDER_VIDEO_URL}
+						src={DEMO_VIDEO_URL}
 						autoPlay
 						loop
 						muted
